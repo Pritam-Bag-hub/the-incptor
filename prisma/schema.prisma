@@ -21,6 +21,7 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sessions  Session[]
+  lands     Land[]
 }
 
 model Session {
@@ -30,4 +31,54 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+enum LandStatus {
+  AVAILABLE
+  UNAVAILABLE
+  UNDER_CONTRACT
+}
+
+enum SizeUnit {
+  ACRE
+  HECTARE
+}
+
+model CropCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  crops       Crop[]
+}
+
+model Crop {
+  id           String       @id @default(uuid())
+  name         String       @unique
+  categoryId   String
+  category     CropCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  durationDays Int
+  description  String?
+  metadataJson String?      // Mappings for future timelines & workers
+}
+
+model Land {
+  id          String     @id @default(uuid())
+  ownerId     String
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  size        Float
+  unit        SizeUnit
+  address     String
+  village     String
+  district    String
+  state       String
+  pincode     String?
+  latitude    Float
+  longitude   Float
+  status      LandStatus @default(AVAILABLE)
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([ownerId])
 }

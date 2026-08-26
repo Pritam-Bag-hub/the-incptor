@@ -8,9 +8,19 @@ import Link from "next/link";
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role") || "buyer";
+
+  const demoPhoneMap: Record<string, string> = {
+    buyer: "+919999999991",
+    farmer: "+919999999992",
+    worker: "+919999999993",
+    admin: "+919999999994",
+  };
+
+  const defaultPhone = demoPhoneMap[roleParam] || "+919999999991";
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(defaultPhone);
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +92,7 @@ function AuthForm() {
         </h2>
         <p className="text-kombu/70">
           {step === "phone"
-            ? "Enter your phone number to sign in or create an account."
+            ? `Enter your phone number to sign in as ${roleParam === "farmer" ? "Landowner" : roleParam === "buyer" ? "Buyer" : roleParam}.`
             : `We sent a code to ${phone}. Enter it below.`}
         </p>
       </div>
@@ -105,11 +115,14 @@ function AuthForm() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter demo phone, e.g. 9999999991"
+                placeholder={`Enter demo phone, e.g. ${defaultPhone}`}
                 className="w-full pl-12 pr-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
                 autoFocus
               />
             </div>
+            <p className="text-xs text-kombu/60 mt-2">
+              Demo account pre-filled. Feel free to modify or click Send OTP.
+            </p>
           </div>
           <button
             type="submit"
