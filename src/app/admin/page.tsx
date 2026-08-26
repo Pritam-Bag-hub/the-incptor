@@ -1,9 +1,75 @@
 "use client";
 
-import { ShieldAlert, BarChart3, Users, FileWarning } from "lucide-react";
+import { ShieldAlert, BarChart3, Users, FileWarning, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
+  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.status === 401) {
+          router.push("/roles");
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.authenticated || data.user.role !== "ADMIN") {
+          if (data.authenticated) {
+            redirectToCorrectDashboard(data.user.role);
+          } else {
+            router.push("/roles");
+          }
+          return;
+        }
+
+        setUser(data.user);
+        setLoading(false);
+      } catch (err) {
+        console.error("Auth check failed:", err);
+        router.push("/roles");
+      }
+    }
+
+    function redirectToCorrectDashboard(role: string) {
+      if (role === "BUYER") {
+        router.push("/dashboard/buyer");
+      } else if (role === "LANDOWNER") {
+        router.push("/dashboard/farmer");
+      } else if (role === "WORKER") {
+        router.push("/dashboard/worker");
+      }
+    }
+
+    checkAuth();
+  }, [router]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-10 h-10 animate-spin text-red-500" />
+        <p className="text-sm font-semibold text-slate-400 mt-4">Verifying admin session...</p>
+      </div>
+    );
+  }
+
+  const userName = user?.name || "Admin";
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 sm:p-12">
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -19,9 +85,20 @@ export default function AdminDashboard() {
               System-wide overview, high-risk cases, and platform analytics.
             </p>
           </div>
-          <Link href="/" className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-sm font-medium">
-            Exit to Platform
-          </Link>
+          <div className="flex items-center gap-4">
+            <span className="hidden sm:inline text-sm font-medium text-slate-400">
+              Welcome, {userName}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-lg bg-red-950 hover:bg-red-900 border border-red-900/30 transition-colors text-sm font-medium text-red-200 cursor-pointer"
+            >
+              Logout
+            </button>
+            <Link href="/" className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-sm font-medium">
+              Exit
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}

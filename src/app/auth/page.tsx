@@ -8,7 +8,6 @@ import Link from "next/link";
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const role = searchParams.get("role") || "buyer";
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
@@ -19,28 +18,59 @@ function AuthForm() {
   const handlePhoneSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (phone === "0") {
-      setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        setStep("otp");
-      }, 500); // simulate network delay
-    } else {
-      setError("Demo: Please enter '0' as the phone number.");
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) {
+      setError("Please enter a valid phone number.");
+      return;
     }
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setStep("otp");
+    }, 400); // simulate network delay
   };
 
-  const handleOtpSubmit = (e: React.FormEvent) => {
+  const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (otp === "0000") {
-      setIsLoading(true);
-      setTimeout(() => {
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone, otp }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Authentication failed.");
         setIsLoading(false);
-        router.push(`/dashboard/${role}`);
-      }, 800);
-    } else {
-      setError("Demo: Please enter '0000' as the OTP.");
+        return;
+      }
+
+      // Successful login, redirect according to DB role
+      const userRole = data.user.role; // BUYER, LANDOWNER, WORKER, ADMIN
+      setIsLoading(false);
+
+      if (userRole === "BUYER") {
+        router.push("/dashboard/buyer");
+      } else if (userRole === "LANDOWNER") {
+        router.push("/dashboard/farmer");
+      } else if (userRole === "WORKER") {
+        router.push("/dashboard/worker");
+      } else if (userRole === "ADMIN") {
+        router.push("/admin");
+      } else {
+        setError("Invalid user role assigned.");
+      }
+    } catch (err) {
+      console.error("Login failed:", err);
+      setError("Connection error. Please try again.");
+      setIsLoading(false);
     }
   };
 
@@ -75,7 +105,7 @@ function AuthForm() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter '0' for demo"
+                placeholder="Enter demo phone, e.g. 9999999991"
                 className="w-full pl-12 pr-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
                 autoFocus
               />
