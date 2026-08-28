@@ -72,6 +72,9 @@ export async function GET(request: NextRequest) {
       where: {
         status: "AVAILABLE",
       },
+      include: {
+        owner: true,
+      },
     });
 
     const results = [];
@@ -139,6 +142,7 @@ export async function GET(request: NextRequest) {
         distanceKm: distanceKm !== null ? parseFloat(distanceKm.toFixed(2)) : null,
         matchScore: finalScore,
         matchReasons: reasons,
+        ownerName: land.owner.name,
       });
     }
 

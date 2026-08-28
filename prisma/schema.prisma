@@ -14,15 +14,17 @@ enum Role {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  name      String
-  phone     String    @unique
-  role      Role
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  sessions  Session[]
-  lands     Land[]
-  demands   BuyerDemand[]
+  id                 String    @id @default(uuid())
+  name               String
+  phone              String    @unique
+  role               Role
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  sessions           Session[]
+  lands              Land[]
+  demands            BuyerDemand[]
+  buyerContracts     Contract[] @relation("BuyerContracts")
+  landownerContracts Contract[] @relation("LandownerContracts")
 }
 
 model Session {
@@ -61,6 +63,7 @@ model Crop {
   description  String?
   metadataJson String?      // Mappings for future timelines & workers
   demands      BuyerDemand[]
+  contracts    Contract[]
 }
 
 model Land {
@@ -81,6 +84,8 @@ model Land {
   description String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  selections  DemandLandSelection[]
+  contracts   Contract[]
 
   @@index([ownerId])
 }
@@ -118,8 +123,160 @@ model BuyerDemand {
   notes               String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
+  selectedLands       DemandLandSelection[]
+  contracts           Contract[]
 
   @@index([buyerId])
   @@index([cropId])
   @@index([status])
 }
+
+model DemandLandSelection {
+  id        String      @id @default(uuid())
+  demandId  String
+  demand    BuyerDemand @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  landId    String
+  land      Land        @relation(fields: [landId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([demandId, landId])
+  @@index([demandId])
+  @@index([landId])
+}
+
+enum ContractStatus {
+  PENDING_APPROVAL
+  ACCEPTED
+  ACTIVE
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+model Contract {
+  id                  String         @id @default(uuid())
+  demandId            String
+  demand              BuyerDemand    @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  landId              String
+  land                Land           @relation(fields: [landId], references: [id], onDelete: Cascade)
+  buyerId             String
+  buyer               User           @relation("BuyerContracts", fields: [buyerId], references: [id], onDelete: Cascade)
+  landownerId         String
+  landowner           User           @relation("LandownerContracts", fields: [landownerId], references: [id], onDelete: Cascade)
+  cropId              String
+  crop                Crop           @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  
+  landArea            Float
+  allocatedQuantity   Float
+  proposedPrice       Float
+  startDate           DateTime
+  expectedHarvestDate DateTime
+  
+  status              ContractStatus @default(PENDING_APPROVAL)
+  notes               String?
+  rejectionReason     String?
+  revision            Int            @default(1)
+  
+  decisionDate        DateTime?
+  activatedAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  history             ContractHistory[]
+  progressUpdates     FarmProgress[]
+  financialAllocation ContractFinancialAllocation?
+  yield               ContractYield?
+
+  @@unique([demandId, landId])
+  @@index([demandId])
+  @@index([landId])
+  @@index([buyerId])
+  @@index([landownerId])
+  @@index([status])
+}
+
+model ContractHistory {
+  id                  String         @id @default(uuid())
+  contractId          String
+  contract            Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  revision            Int
+
+  landArea            Float
+  allocatedQuantity   Float
+  proposedPrice       Float
+
+  startDate           DateTime
+  expectedHarvestDate DateTime
+
+  status              ContractStatus
+
+  notes               String?
+  rejectionReason     String?
+
+  decisionDate        DateTime?
+  activatedAt         DateTime?
+  completedAt         DateTime?
+
+  createdAt           DateTime       @default(now())
+
+  @@index([contractId])
+}
+
+enum FarmProgressStage {
+  LAND_PREPARATION
+  SOWING
+  GROWING
+  HARVEST_READY
+  HARVEST_COMPLETED
+}
+
+model FarmProgress {
+  id          String            @id @default(uuid())
+  contractId  String
+  contract    Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  stage       FarmProgressStage
+  notes       String?
+  createdAt   DateTime          @default(now())
+
+  @@index([contractId])
+  @@index([stage])
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PARTIAL
+  FULFILLED
+  OVERFULFILLED
+}
+
+model ContractFinancialAllocation {
+  id                 String   @id @default(uuid())
+  contractId         String   @unique
+  contract           Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  totalContractValue Float
+  landownerAmount    Float
+  workforceBudget    Float
+  logisticsBudget    Float
+  platformFee        Float
+  reserveBudget      Float
+  currency           String   @default("INR")
+  isConfigured       Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model ContractYield {
+  id                    String            @id @default(uuid())
+  contractId            String            @unique
+  contract              Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  estimatedQuantity     Float?
+  actualQuantity        Float?
+  unit                  QuantityUnit
+  fulfillmentPercentage Float?
+  fulfillmentStatus     FulfillmentStatus @default(PENDING)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+

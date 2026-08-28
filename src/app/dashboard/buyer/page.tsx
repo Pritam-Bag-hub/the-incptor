@@ -20,10 +20,12 @@ import {
   Eye,
   CheckCircle,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  X,
+  Check
 } from "lucide-react";
 
-type Tab = "overview" | "create-demand" | "my-demands" | "discover-land";
+type Tab = "overview" | "create-demand" | "my-demands" | "discover-land" | "my-contracts";
 
 interface CropCategory {
   id: string;
@@ -74,6 +76,51 @@ interface DiscoveredLand {
   distanceKm: number | null;
   matchScore: number;
   matchReasons: string[];
+  ownerName?: string;
+}
+
+interface Contract {
+  id: string;
+  demandId: string;
+  landId: string;
+  buyerId: string;
+  landownerId: string;
+  cropId: string;
+  landArea: number;
+  allocatedQuantity: number;
+  proposedPrice: number;
+  startDate: string;
+  expectedHarvestDate: string;
+  status: "PENDING_APPROVAL" | "ACCEPTED" | "ACTIVE" | "REJECTED" | "CANCELLED" | "COMPLETED";
+  notes: string | null;
+  rejectionReason: string | null;
+  revision: number;
+  decisionDate: string | null;
+  activatedAt?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  history?: any[];
+  progressUpdates?: any[];
+  land?: {
+    name: string;
+    village: string;
+    district: string;
+    state: string;
+  };
+  crop?: {
+    name: string;
+  };
+  landowner?: {
+    name: string;
+    phone: string;
+  };
+  buyer?: {
+    name: string;
+    phone: string;
+  };
+  demand?: any;
+  financialAllocation?: any;
+  yield?: any;
 }
 
 export default function BuyerDashboard() {
@@ -117,6 +164,40 @@ export default function BuyerDashboard() {
   const [inspectLand, setInspectLand] = useState<DiscoveredLand | null>(null);
   const [discoveryError, setDiscoveryError] = useState("");
 
+  // Persistent selections state
+  const [selectedLands, setSelectedLands] = useState<DiscoveredLand[]>([]);
+  const [loadingSelections, setLoadingSelections] = useState(false);
+
+  // Contracts state variables
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [loadingContracts, setLoadingContracts] = useState(false);
+  const [demandContracts, setDemandContracts] = useState<Contract[]>([]);
+
+  // Proposal modal/form states
+  const [proposingLand, setProposingLand] = useState<DiscoveredLand | null>(null);
+  const [propPrice, setPropPrice] = useState("");
+  const [propStartDate, setPropStartDate] = useState("");
+  const [propEndDate, setPropEndDate] = useState("");
+  const [propNotes, setPropNotes] = useState("");
+  const [submittingProposal, setSubmittingProposal] = useState(false);
+  const [propError, setPropError] = useState("");
+
+  // Contract Activation & Details View States
+  const [showActivateConfirmId, setShowActivateConfirmId] = useState<string | null>(null);
+  const [viewingContractId, setViewingContractId] = useState<string | null>(null);
+  const [viewingContract, setViewingContract] = useState<Contract | null>(null);
+  const [loadingViewingContract, setLoadingViewingContract] = useState(false);
+  const [viewingContractOverview, setViewingContractOverview] = useState<any | null>(null);
+
+  // Financial allocations editing states
+  const [editLandownerAmount, setEditLandownerAmount] = useState("");
+  const [editWorkforceBudget, setEditWorkforceBudget] = useState("");
+  const [editLogisticsBudget, setEditLogisticsBudget] = useState("");
+  const [editPlatformFee, setEditPlatformFee] = useState("");
+  const [editReserveBudget, setEditReserveBudget] = useState("");
+  const [savingFinancials, setSavingFinancials] = useState(false);
+  const [financialsError, setFinancialsError] = useState("");
+
   // Preserved Phase 1 Landlord mock list for Overview Tab
   const landlords = [
     {
@@ -157,6 +238,8 @@ export default function BuyerDashboard() {
   useEffect(() => {
     if (activeTab === "my-demands") {
       fetchDemands();
+    } else if (activeTab === "my-contracts") {
+      fetchContracts();
     }
   }, [activeTab]);
 
@@ -321,6 +404,295 @@ export default function BuyerDashboard() {
     }
   };
 
+  // Fetch selected lands for the demand
+  const fetchSelectedLands = async (demandId: string) => {
+    if (!demandId) {
+      setSelectedLands([]);
+      return;
+    }
+    setLoadingSelections(true);
+    try {
+      const res = await fetch(`/api/demands/${demandId}/lands`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedLands(data);
+      }
+    } catch (err) {
+      console.error("Error fetching selection:", err);
+    } finally {
+      setLoadingSelections(false);
+    }
+  };
+
+  const fetchDemandContracts = async (demandId: string) => {
+    try {
+      const res = await fetch(`/api/contracts?demandId=${demandId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDemandContracts(data);
+      }
+    } catch (err) {
+      console.error("Error fetching demand contracts:", err);
+    }
+  };
+
+  const fetchContracts = async () => {
+    setLoadingContracts(true);
+    try {
+      const res = await fetch("/api/contracts");
+      if (res.ok) {
+        const data = await res.json();
+        setContracts(data);
+      }
+    } catch (err) {
+      console.error("Error fetching contracts:", err);
+    } finally {
+      setLoadingContracts(false);
+    }
+  };
+
+  const handleCancelContract = async (contractId: string) => {
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/cancel`, {
+        method: "PATCH",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to cancel proposal.");
+      }
+      fetchContracts();
+      if (selectedDemandId) {
+        fetchDemandContracts(selectedDemandId);
+      }
+    } catch (err: any) {
+      alert(err.message || "Could not cancel contract.");
+    }
+  };
+
+  const handleActivateContract = async (contractId: string) => {
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/activate`, {
+        method: "PATCH",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to activate contract.");
+      }
+      setShowActivateConfirmId(null);
+      fetchContracts();
+      if (selectedDemandId) {
+        fetchDemandContracts(selectedDemandId);
+      }
+    } catch (err: any) {
+      alert(err.message || "Could not activate contract.");
+    }
+  };
+
+  const handleCompleteContract = async (contractId: string) => {
+    const confirmComplete = confirm("Are you sure you want to complete this contract? This will release the land parcel back to AVAILABLE status.");
+    if (!confirmComplete) return;
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/complete`, {
+        method: "PATCH",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to complete contract.");
+      }
+      fetchContracts();
+      if (selectedDemandId) {
+        fetchDemandContracts(selectedDemandId);
+      }
+    } catch (err: any) {
+      alert(err.message || "Could not complete contract.");
+    }
+  };
+
+  const initFinancialsForm = (contract: any, overview: any) => {
+    const val = contract.proposedPrice;
+    const fin = overview?.financialSummary || contract.financialAllocation;
+    if (fin) {
+      setEditLandownerAmount(fin.landownerAmount.toString());
+      setEditWorkforceBudget(fin.workforceBudget.toString());
+      setEditLogisticsBudget(fin.logisticsBudget.toString());
+      setEditPlatformFee(fin.platformFee.toString());
+      setEditReserveBudget(fin.reserveBudget.toString());
+    } else {
+      setEditLandownerAmount((val * 0.50).toString());
+      setEditWorkforceBudget((val * 0.25).toString());
+      setEditLogisticsBudget((val * 0.10).toString());
+      setEditPlatformFee((val * 0.10).toString());
+      setEditReserveBudget((val * 0.05).toString());
+    }
+    setFinancialsError("");
+  };
+
+  const fetchContractDetails = async (contractId: string) => {
+    setLoadingViewingContract(true);
+    setViewingContractOverview(null);
+    try {
+      const res = await fetch(`/api/contracts/${contractId}`);
+      const overviewRes = await fetch(`/api/contracts/${contractId}/overview`);
+      if (res.ok) {
+        const data = await res.json();
+        setViewingContract(data);
+        
+        let overviewData = null;
+        if (overviewRes.ok) {
+          overviewData = await overviewRes.json();
+          setViewingContractOverview(overviewData);
+        }
+        
+        initFinancialsForm(data, overviewData);
+      }
+    } catch (err) {
+      console.error("Error fetching contract details:", err);
+    } finally {
+      setLoadingViewingContract(false);
+    }
+  };
+
+  const handleSaveFinancials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingContract) return;
+    setSavingFinancials(true);
+    setFinancialsError("");
+    try {
+      const payload = {
+        landownerAmount: parseFloat(editLandownerAmount),
+        workforceBudget: parseFloat(editWorkforceBudget),
+        logisticsBudget: parseFloat(editLogisticsBudget),
+        platformFee: parseFloat(editPlatformFee),
+        reserveBudget: parseFloat(editReserveBudget),
+      };
+
+      if (
+        isNaN(payload.landownerAmount) || payload.landownerAmount < 0 ||
+        isNaN(payload.workforceBudget) || payload.workforceBudget < 0 ||
+        isNaN(payload.logisticsBudget) || payload.logisticsBudget < 0 ||
+        isNaN(payload.platformFee) || payload.platformFee < 0 ||
+        isNaN(payload.reserveBudget) || payload.reserveBudget < 0
+      ) {
+        throw new Error("Budget allocations must be non-negative numbers.");
+      }
+
+      const total = payload.landownerAmount + payload.workforceBudget + payload.logisticsBudget + payload.platformFee + payload.reserveBudget;
+      const expected = viewingContract.proposedPrice;
+
+      // Validate allocation totals sum up with 0.01 tolerance
+      if (Math.abs(total - expected) >= 0.01) {
+        throw new Error(`Total allocated budget (${total.toFixed(2)}) must sum up to the agreed price (${expected.toFixed(2)}) within a 0.01 tolerance.`);
+      }
+
+      const res = await fetch(`/api/contracts/${viewingContract.id}/financials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to save financial allocations.");
+      }
+
+      await fetchContractDetails(viewingContract.id);
+      alert("Financial allocations saved successfully!");
+    } catch (err: any) {
+      setFinancialsError(err.message || "An error occurred.");
+    } finally {
+      setSavingFinancials(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewingContractId) {
+      fetchContractDetails(viewingContractId);
+    } else {
+      setViewingContract(null);
+    }
+  }, [viewingContractId]);
+
+  const handleProposeContractSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDemandId || !proposingLand) return;
+    setSubmittingProposal(true);
+    setPropError("");
+    try {
+      const res = await fetch("/api/contracts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          demandId: selectedDemandId,
+          landId: proposingLand.id,
+          proposedPrice: propPrice,
+          startDate: propStartDate,
+          expectedHarvestDate: propEndDate,
+          notes: propNotes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to submit proposal.");
+      }
+      await fetchDemandContracts(selectedDemandId);
+      setProposingLand(null);
+      setPropPrice("");
+      setPropStartDate("");
+      setPropEndDate("");
+      setPropNotes("");
+    } catch (err: any) {
+      setPropError(err.message || "An error occurred.");
+    } finally {
+      setSubmittingProposal(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDemandId) {
+      fetchSelectedLands(selectedDemandId);
+      fetchDemandContracts(selectedDemandId);
+    } else {
+      setSelectedLands([]);
+      setDemandContracts([]);
+    }
+  }, [selectedDemandId]);
+
+  const handleSelectLand = async (land: DiscoveredLand) => {
+    if (!selectedDemandId) return;
+    try {
+      const res = await fetch(`/api/demands/${selectedDemandId}/lands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landId: land.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to select land.");
+      }
+      await fetchSelectedLands(selectedDemandId);
+    } catch (err: any) {
+      alert(err.message || "Could not select land.");
+    }
+  };
+
+  const handleRemoveLand = async (landId: string) => {
+    if (!selectedDemandId) return;
+    try {
+      const res = await fetch(`/api/demands/${selectedDemandId}/lands`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to deselect land.");
+      }
+      await fetchSelectedLands(selectedDemandId);
+    } catch (err: any) {
+      alert(err.message || "Could not deselect land.");
+    }
+  };
+
   const handleTriggerDiscovery = (demandId: string) => {
     setSelectedDemandId(demandId);
     setActiveTab("discover-land");
@@ -340,6 +712,7 @@ export default function BuyerDashboard() {
       }
       const data = await res.json();
       setDiscoveredLands(data);
+      await fetchSelectedLands(demandId);
     } catch (err: any) {
       setDiscoveryError(err.message || "Could not run land matching.");
       setDiscoveredLands([]);
@@ -347,6 +720,13 @@ export default function BuyerDashboard() {
       setLoadingDiscovery(false);
     }
   };
+
+  const activeDemand = demands.find((d) => d.id === selectedDemandId);
+  const requiredArea = activeDemand?.requiredLandArea || 0;
+  const selectedArea = selectedLands.reduce((acc, l) => acc + l.size, 0);
+  const remainingArea = Math.max(requiredArea - selectedArea, 0);
+  const requirementMet = requiredArea > 0 && selectedArea >= requiredArea;
+  const excessArea = selectedArea > requiredArea ? selectedArea - requiredArea : 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -406,6 +786,16 @@ export default function BuyerDashboard() {
             }`}
           >
             Discover Land
+          </button>
+          <button
+            onClick={() => setActiveTab("my-contracts")}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === "my-contracts"
+                ? "bg-pine text-brandy shadow-md"
+                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
+            }`}
+          >
+            My Contracts
           </button>
         </div>
       </div>
@@ -1093,15 +1483,25 @@ export default function BuyerDashboard() {
                       <div className="p-5 space-y-3">
                         <div className="flex justify-between items-start">
                           <h4 className="font-bold text-pine text-base">{land.name}</h4>
-                          <span className="text-xs font-bold text-dingley px-2 py-0.5 bg-dingley/20 rounded-md">
-                            Score: {land.matchScore}%
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {selectedLands.some((l) => l.id === land.id) && (
+                              <span className="text-[10px] font-bold text-dingley px-2 py-0.5 bg-dingley/20 rounded-md">
+                                Selected
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-dingley px-2 py-0.5 bg-dingley/20 rounded-md">
+                              Score: {land.matchScore}%
+                            </span>
+                          </div>
                         </div>
                         <p className="text-xs text-kombu/70 flex items-center gap-1">
                           <MapPin className="w-3.5 h-3.5 text-copper" /> {land.village}, {land.district}, {land.state}
                         </p>
                         <p className="text-sm font-bold text-pine">
                           Size: {land.size} {land.unit}s
+                        </p>
+                        <p className="text-xs text-kombu/60 font-semibold">
+                          Owner: {land.ownerName || "Registered Owner"}
                         </p>
                         {land.distanceKm !== null && (
                           <span className="inline-block text-[10px] bg-brandy/20 text-kombu px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
@@ -1110,23 +1510,181 @@ export default function BuyerDashboard() {
                         )}
                       </div>
 
-                      <div className="bg-brandy/10 px-5 py-3 border-t border-brandy/20 flex justify-end">
+                      <div className="bg-brandy/10 px-5 py-3 border-t border-brandy/20 flex justify-between items-center">
                         <button
                           onClick={() => setInspectLand(land)}
                           className="flex items-center gap-1 text-xs font-bold text-pine hover:text-dingley cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" /> View Details
                         </button>
+
+                        {selectedLands.some((l) => l.id === land.id) ? (
+                          <button
+                            onClick={() => handleRemoveLand(land.id)}
+                            className="flex items-center gap-1 text-xs font-bold text-copper hover:text-copper/85 cursor-pointer"
+                          >
+                            Remove Selection
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleSelectLand(land)}
+                            className="flex items-center gap-1 text-xs font-bold text-dingley hover:text-pine cursor-pointer"
+                          >
+                            Select Land
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Right Column: Plot inspector */}
-              <div className="md:col-span-1">
+              {/* Right Column: Persistent Selection Summary & Inspector */}
+              <div className="md:col-span-1 space-y-6">
+                {/* 1. Selected Land Summary */}
+                <div className="bg-white p-6 rounded-3xl border border-brandy/30 shadow-sm space-y-4">
+                  <h3 className="font-bold text-pine text-lg border-b border-brandy/20 pb-2">
+                    Selected Land Summary
+                  </h3>
+                  
+                  {selectedLands.length === 0 ? (
+                    <p className="text-xs text-kombu/70 italic">No land parcels selected yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="max-h-72 overflow-y-auto divide-y divide-brandy/10 pr-1">
+                        {selectedLands.map((land) => {
+                          const contract = demandContracts.find((c) => c.landId === land.id);
+                          return (
+                            <div key={land.id} className="py-3 last:border-b-0 space-y-2">
+                              <div className="flex items-start justify-between text-xs">
+                                <div>
+                                  <p className="font-bold text-pine">{land.name}</p>
+                                  <p className="text-[10px] text-kombu/60">
+                                    {land.village}, {land.district} | Owner: {land.ownerName || "Owner"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="font-semibold text-pine text-xs">{land.size} {land.unit}s</span>
+                                  {!contract && (
+                                    <button
+                                      onClick={() => handleRemoveLand(land.id)}
+                                      className="p-1 text-copper hover:bg-brandy/20 rounded transition-colors"
+                                      title="Remove selection"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Contract Proposal trigger / state */}
+                              <div className="flex items-center justify-between gap-2 pt-0.5 text-xs">
+                                {contract ? (
+                                  <>
+                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
+                                      contract.status === "PENDING_APPROVAL" ? "bg-copper/20 text-copper" :
+                                      contract.status === "ACCEPTED" ? "bg-dingley/20 text-dingley" :
+                                      contract.status === "ACTIVE" ? "bg-pine text-white" :
+                                      contract.status === "REJECTED" ? "bg-red-100 text-red-700" :
+                                      "bg-gray-100 text-gray-500"
+                                    }`}>
+                                      {contract.status.replace("_", " ")}
+                                    </span>
+                                    
+                                    {contract.status === "PENDING_APPROVAL" && (
+                                      <button
+                                        onClick={() => handleCancelContract(contract.id)}
+                                        className="text-[10px] font-bold text-copper hover:underline cursor-pointer"
+                                      >
+                                        Cancel Proposal
+                                      </button>
+                                    )}
+
+                                    {(contract.status === "REJECTED" || contract.status === "CANCELLED") && (
+                                      <button
+                                        onClick={() => {
+                                          setProposingLand(land);
+                                          setPropPrice(contract.proposedPrice.toString());
+                                          if (contract.startDate) {
+                                            setPropStartDate(new Date(contract.startDate).toISOString().split("T")[0]);
+                                          }
+                                          if (contract.expectedHarvestDate) {
+                                            setPropEndDate(new Date(contract.expectedHarvestDate).toISOString().split("T")[0]);
+                                          }
+                                          setPropNotes(contract.notes || "");
+                                        }}
+                                        className="text-[10px] font-bold text-dingley hover:underline cursor-pointer"
+                                      >
+                                        Propose Again
+                                      </button>
+                                    )}
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setProposingLand(land);
+                                      const activeDem = demands.find(d => d.id === selectedDemandId);
+                                      const cropMeta = activeDem?.crop?.metadataJson ? JSON.parse(activeDem.crop.metadataJson) : null;
+                                      if (cropMeta?.basePricePerTonne) {
+                                        const yieldPerAcre = parseFloat(cropMeta.expectedYieldPerAcre) || 0;
+                                        const estimatedQty = yieldPerAcre * land.size;
+                                        const estimatedCost = estimatedQty * parseFloat(cropMeta.basePricePerTonne);
+                                        setPropPrice(Math.round(estimatedCost).toString());
+                                      } else {
+                                        setPropPrice("");
+                                      }
+                                    }}
+                                    className="text-[10px] font-bold text-dingley hover:text-pine hover:underline flex items-center gap-0.5 cursor-pointer"
+                                  >
+                                    Propose Contract &rarr;
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t border-brandy/20 pt-4 space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-kombu/70">Required Area:</span>
+                      <span className="font-bold text-pine">{requiredArea ? `${requiredArea} Acres` : "Not specified"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-kombu/70">Total Selected:</span>
+                      <span className="font-bold text-pine">{selectedArea.toFixed(1)} Acres</span>
+                    </div>
+                    
+                    {requiredArea > 0 && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-kombu/70">Remaining Required:</span>
+                          <span className={`font-bold ${remainingArea === 0 ? "text-dingley" : "text-pine"}`}>
+                            {remainingArea.toFixed(1)} Acres
+                          </span>
+                        </div>
+
+                        {requirementMet ? (
+                          <div className="p-2.5 bg-dingley/20 border border-dingley/30 text-dingley rounded-xl font-bold text-center mt-2 flex items-center justify-center gap-1.5">
+                            <CheckCircle className="w-4 h-4" /> Land Requirement Met
+                          </div>
+                        ) : null}
+
+                        {excessArea > 0 ? (
+                          <div className="p-2 bg-brandy/20 border border-brandy/30 text-pine rounded-xl text-center text-[10px] font-semibold mt-2">
+                            Selected area exceeds requirement by {excessArea.toFixed(1)} Acres.
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Discovery Inspector */}
                 {inspectLand ? (
-                  <div className="bg-white p-6 rounded-3xl border border-brandy/30 shadow-sm space-y-6 animate-in fade-in duration-300 sticky top-24">
+                  <div className="bg-white p-6 rounded-3xl border border-brandy/30 shadow-sm space-y-6 animate-in fade-in duration-300">
                     <div>
                       <div className="inline-block px-2.5 py-1 bg-dingley/20 text-dingley text-xs font-bold rounded-md uppercase tracking-wider mb-2">
                         Discovery Inspector
@@ -1172,8 +1730,8 @@ export default function BuyerDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-64 border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-8 bg-brandy/5 text-kombu/60 sticky top-24">
-                    <Compass className="w-12 h-12 mb-2 text-brandy" />
+                  <div className="h-48 border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-6 bg-brandy/5 text-kombu/60">
+                    <Compass className="w-10 h-10 mb-2 text-brandy" />
                     <h4 className="font-bold text-pine text-sm mb-1">Select a Plot</h4>
                     <p className="text-[10px] max-w-xs">Click View Details on any discovered land card to inspect score breakdowns and size dimensions.</p>
                   </div>
@@ -1181,6 +1739,762 @@ export default function BuyerDashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 5. MY CONTRACTS TAB */}
+      {activeTab === "my-contracts" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-pine">
+              Contract Proposals Directory
+            </h2>
+          </div>
+
+          {loadingContracts ? (
+            <div className="flex flex-col items-center py-20 bg-white rounded-3xl border border-brandy/30">
+              <Loader2 className="w-8 h-8 animate-spin text-dingley" />
+              <p className="text-sm text-kombu/70 mt-4">Retrieving proposals...</p>
+            </div>
+          ) : contracts.length === 0 ? (
+            <div className="h-64 border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-8 bg-brandy/5 text-kombu/60 max-w-xl mx-auto">
+              <Compass className="w-12 h-12 mb-3 text-brandy" />
+              <h4 className="font-bold text-pine text-lg mb-1">No Proposals Sent</h4>
+              <p className="text-xs max-w-xs">Selected lands in "Discover Land" tab can be proposed for agricultural contracts.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {contracts.map((contract) => (
+                <div
+                  key={contract.id}
+                  className="bg-white rounded-2xl border border-brandy/40 shadow-sm overflow-hidden"
+                >
+                  <div className="bg-brandy/10 p-5 border-b border-brandy/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
+                        {contract.crop?.name || "Crop"} Proposal
+                      </span>
+                      <h3 className="font-bold text-lg text-pine mt-1.5 flex items-center gap-2">
+                        Contract #{contract.id.substring(0, 8).toUpperCase()}
+                        <span className="text-[10px] bg-brandy/20 text-pine px-2 py-0.5 rounded font-semibold">
+                          v{contract.revision || 1}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-kombu/60 mt-0.5">
+                        Proposed to: <strong>{contract.landowner?.name || "Registered Landowner"}</strong> ({contract.landowner?.phone || "N/A"})
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                        contract.status === "PENDING_APPROVAL" ? "bg-copper/20 text-copper" :
+                        contract.status === "ACCEPTED" ? "bg-dingley/20 text-dingley" :
+                        contract.status === "ACTIVE" ? "bg-pine text-white" :
+                        contract.status === "REJECTED" ? "bg-red-100 text-red-700" :
+                        "bg-gray-150 text-gray-500"
+                      }`}>
+                        {contract.status.replace("_", " ")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
+                    <div>
+                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Land Details</span>
+                      <p className="font-bold text-pine text-sm">{contract.land?.name || "Plot Location"}</p>
+                      <p className="text-kombu/70 mt-0.5">{contract.land?.village}, {contract.land?.district}, {contract.land?.state}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Area & Quantity</span>
+                      <p className="font-bold text-pine text-sm">{contract.landArea} Acres</p>
+                      <p className="text-kombu/70 mt-0.5">Allocated Yield: {contract.allocatedQuantity.toFixed(1)} Tonnes</p>
+                    </div>
+
+                    <div>
+                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Proposed Value</span>
+                      <p className="font-bold text-copper text-sm">₹{contract.proposedPrice.toLocaleString("en-IN")}</p>
+                      <p className="text-kombu/70 mt-0.5">Estimated timeline payout</p>
+                    </div>
+
+                    <div>
+                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Contract Timelines</span>
+                      <p className="font-bold text-pine text-sm">Start: {new Date(contract.startDate).toLocaleDateString()}</p>
+                      <p className="text-kombu/70 mt-0.5">Harvest: {new Date(contract.expectedHarvestDate).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  {contract.notes && (
+                    <div className="px-5 pb-5">
+                      <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
+                        <strong>Negotiation Notes:</strong> "{contract.notes}"
+                      </div>
+                    </div>
+                  )}
+
+                  {contract.status === "REJECTED" && contract.rejectionReason && (
+                    <div className="px-5 pb-5">
+                      <div className="bg-copper/10 border border-copper/30 p-3 rounded-xl text-xs text-copper">
+                        <strong>Landowner Rejection Reason:</strong> "{contract.rejectionReason}"
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-brandy/10 px-5 py-3 border-t border-brandy/20 flex justify-end gap-3">
+                    {contract.status === "PENDING_APPROVAL" && (
+                      <button
+                        onClick={() => handleCancelContract(contract.id)}
+                        className="px-4 py-2 border border-copper text-copper font-bold rounded-xl hover:bg-copper/5 text-xs transition-all cursor-pointer"
+                      >
+                        Cancel Proposal
+                      </button>
+                    )}
+                    {contract.status === "ACCEPTED" && (
+                      <button
+                        onClick={() => setShowActivateConfirmId(contract.id)}
+                        className="px-4 py-2 bg-pine text-brandy hover:bg-kombu font-bold rounded-xl text-xs transition-all cursor-pointer"
+                      >
+                        Activate Contract
+                      </button>
+                    )}
+                    {contract.status === "ACTIVE" && (
+                      <>
+                        <button
+                          onClick={() => setViewingContractId(contract.id)}
+                          className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        >
+                          View Contract
+                        </button>
+                        <button
+                          onClick={() => handleCompleteContract(contract.id)}
+                          className="px-4 py-2 bg-copper text-brandy hover:bg-copper/90 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        >
+                          Complete Contract
+                        </button>
+                      </>
+                    )}
+                    {contract.status === "COMPLETED" && (
+                      <button
+                        onClick={() => setViewingContractId(contract.id)}
+                        className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                      >
+                        View Summary
+                      </button>
+                    )}
+                    {(contract.status === "REJECTED" || contract.status === "CANCELLED") && (
+                      <>
+                        <button
+                          onClick={() => setViewingContractId(contract.id)}
+                          className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => {
+                            const mockLand: any = {
+                              id: contract.landId,
+                              name: contract.land?.name || "Plot",
+                              size: contract.landArea,
+                              unit: "ACRE",
+                              village: contract.land?.village || "",
+                              district: contract.land?.district || "",
+                              state: contract.land?.state || "",
+                              ownerName: contract.landowner?.name || "",
+                            };
+                            setProposingLand(mockLand);
+                            setPropPrice(contract.proposedPrice.toString());
+                            if (contract.startDate) {
+                              setPropStartDate(new Date(contract.startDate).toISOString().split("T")[0]);
+                            }
+                            if (contract.expectedHarvestDate) {
+                              setPropEndDate(new Date(contract.expectedHarvestDate).toISOString().split("T")[0]);
+                            }
+                            setPropNotes(contract.notes || "");
+                          }}
+                          className="px-4 py-2 bg-pine text-brandy hover:bg-kombu font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        >
+                          Propose Again
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Contract Proposal Modal Overlay */}
+      {proposingLand && (
+        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+            <div>
+              <h3 className="text-xl font-bold text-pine">Propose Contract</h3>
+              <p className="text-xs text-kombu/70 mt-1">
+                Specify timeline targets and proposed pricing for plot <strong>{proposingLand.name}</strong>.
+              </p>
+            </div>
+
+            {propError && (
+              <div className="p-3 bg-copper/10 border border-copper/30 text-copper rounded-xl text-xs font-semibold">
+                {propError}
+              </div>
+            )}
+
+            <form onSubmit={handleProposeContractSubmit} className="space-y-4 text-xs font-medium">
+              <div>
+                <label className="block text-kombu/80 font-bold mb-1.5">Selected Land Area</label>
+                <input
+                  type="text"
+                  disabled
+                  value={`${proposingLand.size} ${proposingLand.unit}s`}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-brandy rounded-xl outline-none font-semibold text-pine"
+                />
+              </div>
+
+              <div>
+                <label className="block text-kombu/80 font-bold mb-1.5">Proposed Total Price (₹)</label>
+                <input
+                  type="number"
+                  required
+                  placeholder="e.g. 150000"
+                  value={propPrice}
+                  onChange={(e) => setPropPrice(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-kombu/80 font-bold mb-1.5">Start Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={propStartDate}
+                    onChange={(e) => setPropStartDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                  />
+                </div>
+                <div>
+                  <label className="block text-kombu/80 font-bold mb-1.5">Harvest Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={propEndDate}
+                    onChange={(e) => setPropEndDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-kombu/80 font-bold mb-1.5">Optional Proposal Notes</label>
+                <textarea
+                  rows={3}
+                  placeholder="Specify any soil/crop milestone preferences or payment terms..."
+                  value={propNotes}
+                  onChange={(e) => setPropNotes(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setProposingLand(null)}
+                  className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingProposal}
+                  className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {submittingProposal ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    "Send Proposal"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Activate Contract Confirmation Warning Dialog Modal */}
+      {showActivateConfirmId && (
+        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+            <div>
+              <h3 className="text-xl font-bold text-pine">Confirm Contract Activation</h3>
+              <p className="text-xs text-kombu/70 mt-2 leading-relaxed">
+                Activating this contract will officially begin the farming agreement.
+              </p>
+              <div className="bg-brandy/15 border border-brandy/30 text-pine rounded-xl p-3.5 text-xs font-semibold mt-4 leading-normal">
+                This action is irreversible. The land parcel status will remain locked as UNDER_CONTRACT. Buyer and farmer will be bound by the agreed rates.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowActivateConfirmId(null)}
+                className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10 text-xs cursor-pointer"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={() => handleActivateContract(showActivateConfirmId)}
+                className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md hover:shadow-lg text-xs cursor-pointer"
+              >
+                Confirm & Activate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contract Details / Timeline Modal Overlay */}
+      {viewingContractId && (
+        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-lg w-full relative space-y-6 my-8 animate-in slide-in-from-bottom-4 duration-300">
+            <button
+              onClick={() => setViewingContractId(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-brandy/20 text-kombu/60 hover:text-pine transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {loadingViewingContract ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-dingley" />
+                <p className="text-xs text-kombu/70 mt-3">Fetching contract details...</p>
+              </div>
+            ) : viewingContract ? (
+              <div className="space-y-6">
+                <div>
+                  <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
+                    {viewingContract.crop?.name || "Crop"} Contract Details
+                  </span>
+                  <h3 className="text-2xl font-bold text-pine mt-2 flex items-center gap-2">
+                    Contract #{viewingContract.id.substring(0, 8).toUpperCase()}
+                    <span className="text-xs bg-brandy/20 text-pine px-2 py-0.5 rounded font-semibold">
+                      v{viewingContract.revision}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-kombu/60 mt-1 uppercase tracking-wider font-semibold">
+                    Current Status: <span className="text-copper">{viewingContract.status.replace("_", " ")}</span>
+                  </p>
+                </div>
+
+                {/* Contract Health Overview Banner */}
+                {viewingContractOverview && (
+                  <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
+                    viewingContractOverview.health === "COMPLETED" ? "bg-dingley/15 text-pine border border-dingley/30" :
+                    viewingContractOverview.health === "NEEDS_ATTENTION" ? "bg-red-50 text-red-800 border border-red-200" :
+                    "bg-copper/10 text-copper border border-copper/30"
+                  }`}>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Contract Health Status</p>
+                      <p className="text-base font-bold mt-0.5">
+                        {viewingContractOverview.health.replace("_", " ")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Timeline Progress</p>
+                      <p className="text-base font-bold mt-0.5">{viewingContractOverview.progressPercentage}%</p>
+                    </div>
+                  </div>
+                )}
+
+
+                {/* Timeline Tracker */}
+                <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4">
+                  <h4 className="text-xs font-bold text-pine uppercase tracking-wider">Cultivation Timeline</h4>
+                  <div className="relative border-l border-brandy/40 ml-2.5 pl-5 space-y-4 py-1 text-xs">
+                    {/* Step 1: Proposed */}
+                    <div className="relative">
+                      <span className="absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full bg-dingley flex items-center justify-center text-white ring-4 ring-white">
+                        <Check className="w-2.5 h-2.5" />
+                      </span>
+                      <p className="font-bold text-pine">Contract Proposed</p>
+                      <p className="text-[10px] text-kombu/60 mt-0.5">
+                        {new Date(viewingContract.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* Step 2: Decision (Accept/Reject) */}
+                    <div className="relative">
+                      <span className={`absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white ring-4 ring-white ${
+                        viewingContract.decisionDate ? "bg-dingley" : "bg-brandy/40"
+                      }`}>
+                        {viewingContract.decisionDate ? <Check className="w-2.5 h-2.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                      <p className={`font-bold ${viewingContract.decisionDate ? "text-pine" : "text-kombu/40"}`}>
+                        {viewingContract.status === "REJECTED" ? "Landowner Rejected" : "Landowner Accepted"}
+                      </p>
+                      {viewingContract.decisionDate && (
+                        <p className="text-[10px] text-kombu/60 mt-0.5">
+                          {new Date(viewingContract.decisionDate).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Step 3: Activated */}
+                    {(viewingContract.status === "ACTIVE" || viewingContract.status === "COMPLETED" || viewingContract.activatedAt) && (
+                      <div className="relative">
+                        <span className="absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full bg-dingley flex items-center justify-center text-white ring-4 ring-white">
+                          <Check className="w-2.5 h-2.5" />
+                        </span>
+                        <p className="font-bold text-pine">Contract Activated</p>
+                        {viewingContract.activatedAt && (
+                          <p className="text-[10px] text-kombu/60 mt-0.5">
+                            {new Date(viewingContract.activatedAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Expected Harvest */}
+                    <div className="relative">
+                      <span className="absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full bg-brandy/40 flex items-center justify-center text-white ring-4 ring-white">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      </span>
+                      <p className="font-bold text-kombu/50">Expected Harvest Period</p>
+                      <p className="text-[10px] text-kombu/40 mt-0.5">
+                        Target harvest: {new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid info */}
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Buyer Involved</span>
+                    <span className="font-bold text-pine">{viewingContract.buyer?.name}</span>
+                    <span className="text-[10px] text-kombu/60 block">{viewingContract.buyer?.phone}</span>
+                  </div>
+                  <div>
+                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Farmer Owner</span>
+                    <span className="font-bold text-pine">{viewingContract.landowner?.name}</span>
+                    <span className="text-[10px] text-kombu/60 block">{viewingContract.landowner?.phone}</span>
+                  </div>
+                  <div className="col-span-2 border-t border-brandy/20 pt-3">
+                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Land parcel details</span>
+                    <span className="font-bold text-pine">{viewingContract.land?.name}</span>
+                    <span className="text-kombu/70 block mt-0.5">
+                      {viewingContract.land?.village}, {viewingContract.land?.district}, {viewingContract.land?.state}
+                    </span>
+                  </div>
+                  <div className="border-t border-brandy/20 pt-3">
+                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Proposed Area</span>
+                    <span className="font-bold text-pine text-sm">{viewingContract.landArea} Acres</span>
+                  </div>
+                  <div className="border-t border-brandy/20 pt-3">
+                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Payout Valuation</span>
+                    <span className="font-bold text-copper text-sm">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+
+                {/* 1. Yield & Fulfillment Card */}
+                {viewingContractOverview?.yieldSummary && (
+                  <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 animate-in fade-in text-xs">
+                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider flex items-center justify-between">
+                      <span>Expected Production & Yield</span>
+                      {viewingContractOverview.yieldSummary.fulfillmentStatus && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                          viewingContractOverview.yieldSummary.fulfillmentStatus === "FULFILLED" ? "bg-dingley/20 text-pine" :
+                          viewingContractOverview.yieldSummary.fulfillmentStatus === "OVERFULFILLED" ? "bg-green-100 text-green-800" :
+                          viewingContractOverview.yieldSummary.fulfillmentStatus === "PARTIAL" ? "bg-amber-100 text-amber-800" :
+                          "bg-brandy/20 text-pine"
+                        }`}>
+                          {viewingContractOverview.yieldSummary.fulfillmentStatus}
+                        </span>
+                      )}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/60 p-3 rounded-xl border border-brandy/10">
+                        <span className="text-[10px] text-kombu/60 block uppercase font-bold tracking-wide">Estimated yield</span>
+                        <span className="font-bold text-pine text-sm">
+                          {viewingContractOverview.yieldSummary.estimatedQuantity !== null
+                            ? `${viewingContractOverview.yieldSummary.estimatedQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
+                            : "Unavailable"}
+                        </span>
+                      </div>
+                      <div className="bg-white/60 p-3 rounded-xl border border-brandy/10">
+                        <span className="text-[10px] text-kombu/60 block uppercase font-bold tracking-wide">Actual harvested</span>
+                        <span className="font-bold text-copper text-sm">
+                          {viewingContractOverview.yieldSummary.actualQuantity !== null
+                            ? `${viewingContractOverview.yieldSummary.actualQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
+                            : "Not recorded yet"}
+                        </span>
+                      </div>
+                      {viewingContractOverview.yieldSummary.estimatedQuantity !== null && viewingContractOverview.yieldSummary.fulfillmentPercentage !== null && (
+                        <div className="col-span-2">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-kombu/70 mb-1">
+                            <span>Fulfillment completion</span>
+                            <span>{viewingContractOverview.yieldSummary.fulfillmentPercentage.toFixed(1)}%</span>
+                          </div>
+                          <div className="bg-brandy/20 rounded-full h-2 w-full overflow-hidden">
+                            <div
+                              className="bg-dingley h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(viewingContractOverview.yieldSummary.fulfillmentPercentage, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Financial Allocation Card */}
+                {viewingContractOverview?.financialSummary && (
+                  <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 animate-in fade-in text-xs">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-pine uppercase tracking-wider">Financial Allocation</h4>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                        viewingContractOverview.financialSummary.isConfigured
+                          ? "bg-dingley/20 text-pine"
+                          : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {viewingContractOverview.financialSummary.isConfigured ? "Agreed Budget" : "Tentative Allocation"}
+                      </span>
+                    </div>
+
+                    {/* Budget Details Grid */}
+                    <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
+                      <div>
+                        <span className="text-[10px] text-kombu/60 block">Landowner payment</span>
+                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.landownerAmount.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-kombu/60 block">Workforce budget</span>
+                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.workforceBudget.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-kombu/60 block">Logistics budget</span>
+                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.logisticsBudget.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-kombu/60 block">Platform service fee (10%)</span>
+                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.platformFee.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="col-span-2 border-t border-brandy/25 pt-2">
+                        <span className="text-[10px] text-kombu/60 block">Reserve / Contingency</span>
+                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.reserveBudget.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+
+                    {/* Edit Form for Buyer */}
+                    {(viewingContract.status === "ACCEPTED" || viewingContract.status === "ACTIVE") && (
+                      <form onSubmit={handleSaveFinancials} className="space-y-3 pt-2">
+                        <h5 className="text-[10px] font-bold text-pine uppercase tracking-wider">Configure Custom Budgets</h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Landowner Amount</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                              value={editLandownerAmount}
+                              onChange={(e) => setEditLandownerAmount(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Workforce Budget</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                              value={editWorkforceBudget}
+                              onChange={(e) => setEditWorkforceBudget(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Logistics Budget</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                              value={editLogisticsBudget}
+                              onChange={(e) => setEditLogisticsBudget(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Platform Service Fee</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                              value={editPlatformFee}
+                              onChange={(e) => setEditPlatformFee(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Reserve Budget</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                              value={editReserveBudget}
+                              onChange={(e) => setEditReserveBudget(e.target.value)}
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        {financialsError && (
+                          <p className="text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded-lg">{financialsError}</p>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={savingFinancials}
+                          className="w-full py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-lg text-xs shadow transition-colors disabled:opacity-50 cursor-pointer animate-in fade-in"
+                        >
+                          {savingFinancials ? "Saving custom allocations..." : "Save Financial Allocation"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+
+                {viewingContract.notes && (
+                  <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
+                    <strong>Proposal Note log:</strong> "{viewingContract.notes}"
+                  </div>
+                )}
+
+                {viewingContract.status === "REJECTED" && viewingContract.rejectionReason && (
+                  <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
+                    <strong>Landowner Rejection Reason:</strong> "{viewingContract.rejectionReason}"
+                  </div>
+                )}
+
+                {/* Milestone Stepper */}
+                {viewingContract.status === "ACTIVE" && (
+                  <div className="border-t border-brandy/20 pt-4 space-y-3">
+                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Milestone Stepper</h4>
+                    <div className="flex justify-between items-center text-[10px] text-kombu/70">
+                      {[
+                        { key: "LAND_PREPARATION", label: "Prep" },
+                        { key: "SOWING", label: "Sowing" },
+                        { key: "GROWING", label: "Growing" },
+                        { key: "HARVEST_READY", label: "Harvest Ready" },
+                        { key: "HARVEST_COMPLETED", label: "Harvested" },
+                      ].map((step, idx) => {
+                        const isCompleted = viewingContract.progressUpdates?.some((pu: any) => pu.stage === step.key);
+                        const isLatest = viewingContract.progressUpdates && viewingContract.progressUpdates[viewingContract.progressUpdates.length - 1]?.stage === step.key;
+                        return (
+                          <div key={step.key} className="flex flex-col items-center flex-1 relative">
+                            {/* Connector line */}
+                            {idx > 0 && (
+                              <div className={`absolute left-[-50%] right-[50%] top-2.5 h-[2px] z-0 ${
+                                isCompleted ? "bg-dingley" : "bg-brandy/20"
+                              }`} />
+                            )}
+                            <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-[9px] relative z-10 ${
+                              isLatest ? "bg-pine text-white ring-4 ring-pine/20" :
+                              isCompleted ? "bg-dingley text-white" :
+                              "bg-brandy/20 text-kombu/45"
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <span className={`mt-1 font-semibold ${isLatest ? "text-pine font-bold" : isCompleted ? "text-dingley" : "text-kombu/50"}`}>{step.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Farm Progress Updates Timeline */}
+                {viewingContract.status === "ACTIVE" && (
+                  <div className="border-t border-brandy/20 pt-4 space-y-3">
+                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Farm Progress History</h4>
+                    {!viewingContract.progressUpdates || viewingContract.progressUpdates.length === 0 ? (
+                      <p className="text-xs text-kombu/50 italic">No farming progress updates yet.</p>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                        {viewingContract.progressUpdates.map((update: any) => (
+                          <div key={update.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1">
+                            <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
+                              <span className="font-bold text-pine uppercase tracking-wide text-[10px]">
+                                {update.stage.replace("_", " ")}
+                              </span>
+                              <span className="text-[9px] text-kombu/60">
+                                {new Date(update.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            {update.notes && (
+                              <p className="text-[10px] text-kombu/80 mt-1 italic font-medium">"{update.notes}"</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 8 — Negotiation History UI */}
+                {viewingContract.history && viewingContract.history.length > 0 && (
+                  <div className="border-t border-brandy/20 pt-4 space-y-3">
+                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-semibold">Negotiation History ({viewingContract.history.length} previous rounds)</h4>
+                    <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                      {viewingContract.history.map((hist: any) => (
+                        <div key={hist.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1.5">
+                          <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
+                            <span className="font-bold text-pine">Round {hist.revision}</span>
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                              hist.status === "REJECTED" ? "bg-red-100 text-red-700" :
+                              hist.status === "CANCELLED" ? "bg-gray-150 text-gray-500" :
+                              "bg-gray-100 text-gray-700"
+                            }`}>
+                              {hist.status.replace("_", " ")}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[10px] text-kombu/70">
+                            <div>Proposed Price: <strong className="text-pine">₹{hist.proposedPrice.toLocaleString("en-IN")}</strong></div>
+                            <div>Area: <strong>{hist.landArea} Acres</strong></div>
+                            <div>Harvest Date: <strong>{new Date(hist.expectedHarvestDate).toLocaleDateString()}</strong></div>
+                            <div>Quantity: <strong>{hist.allocatedQuantity.toFixed(1)} Tonnes</strong></div>
+                          </div>
+                          {hist.notes && (
+                            <p className="text-[10px] text-kombu/60 italic">Buyer Note: "{hist.notes}"</p>
+                          )}
+                          {hist.rejectionReason && (
+                            <p className="text-[10px] text-red-600 bg-red-50 p-1.5 rounded">Rejection Reason: "{hist.rejectionReason}"</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-4">
+                  <button
+                    onClick={() => setViewingContractId(null)}
+                    className="px-5 py-2.5 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer"
+                  >
+                    Close View
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-copper font-semibold">Error displaying contract details.</p>
+            )}
+          </div>
         </div>
       )}
     </div>
