@@ -64,6 +64,7 @@ model Crop {
   metadataJson String?      // Mappings for future timelines & workers
   demands      BuyerDemand[]
   contracts    Contract[]
+  milestoneTemplates CropMilestoneTemplate[]
 }
 
 model Land {
@@ -187,6 +188,9 @@ model Contract {
   progressUpdates     FarmProgress[]
   financialAllocation ContractFinancialAllocation?
   yield               ContractYield?
+  milestones          ContractMilestone[]
+  alerts              ContractAlert[]
+  tasks               ContractTask[]
 
   @@unique([demandId, landId])
   @@index([demandId])
@@ -278,5 +282,115 @@ model ContractYield {
   fulfillmentStatus     FulfillmentStatus @default(PENDING)
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+model CropMilestoneTemplate {
+  id                      String   @id @default(uuid())
+  cropId                  String
+  crop                    Crop     @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  title                   String
+  sequence                Int
+  recommendedDurationDays Int?
+  durationPercentage      Float?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([cropId, sequence])
+  @@index([cropId])
+}
+
+model ContractMilestone {
+  id          String          @id @default(uuid())
+  contractId  String
+  contract    Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  title       String
+  sequence    Int
+  plannedDate DateTime
+  completedAt DateTime?
+  status      MilestoneStatus @default(PENDING)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tasks       ContractTask[]
+
+  @@unique([contractId, sequence])
+  @@index([contractId])
+  @@index([status])
+}
+
+enum ContractAlertType {
+  MILESTONE_OVERDUE
+  HARVEST_DELAY
+  PROGRESS_DELAY
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model ContractAlert {
+  id          String            @id @default(uuid())
+  contractId  String
+  contract    Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  milestoneId String?
+  type        ContractAlertType
+  severity    AlertSeverity
+  title       String
+  message     String
+  isRead      Boolean           @default(false)
+  isResolved  Boolean           @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([contractId, type, title]) // Uniqueness helper: prevents multiple active/inactive duplicates of same type + title on same contract
+  @@index([contractId])
+  @@index([type])
+  @@index([isResolved])
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ContractTask {
+  id                 String            @id @default(uuid())
+  contractId         String
+  contract           Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  milestoneId        String
+  milestone          ContractMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  sequence           Int
+  plannedStart       DateTime?
+  dueDate            DateTime?
+  priority           TaskPriority      @default(MEDIUM)
+  status             TaskStatus        @default(PENDING)
+  estimatedWorkHours Float?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([milestoneId, sequence])
+  @@index([contractId])
+  @@index([milestoneId])
+  @@index([status])
 }
 

@@ -188,6 +188,17 @@ export default function BuyerDashboard() {
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [loadingViewingContract, setLoadingViewingContract] = useState(false);
   const [viewingContractOverview, setViewingContractOverview] = useState<any | null>(null);
+  const [viewingContractMilestones, setViewingContractMilestones] = useState<any[]>([]);
+  const [viewingContractTasks, setViewingContractTasks] = useState<any[]>([]);
+  const [loadingMilestones, setLoadingMilestones] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [milestonesLoadError, setMilestonesLoadError] = useState("");
+  const [tasksLoadError, setTasksLoadError] = useState("");
+  const [loadingYield, setLoadingYield] = useState(false);
+  const [yieldLoadError, setYieldLoadError] = useState("");
+  const [loadingFinancials, setLoadingFinancials] = useState(false);
+  const [financialsLoadError, setFinancialsLoadError] = useState("");
+  const [activeDetailTab, setActiveDetailTab] = useState<"Overview" | "Financials" | "Yield" | "Milestones" | "Tasks" | "Progress" | "Monitoring">("Overview");
 
   // Financial allocations editing states
   const [editLandownerAmount, setEditLandownerAmount] = useState("");
@@ -530,6 +541,12 @@ export default function BuyerDashboard() {
   const fetchContractDetails = async (contractId: string) => {
     setLoadingViewingContract(true);
     setViewingContractOverview(null);
+    setViewingContractMilestones([]);
+    setViewingContractTasks([]);
+    setMilestonesLoadError("");
+    setTasksLoadError("");
+    setYieldLoadError("");
+    setFinancialsLoadError("");
     try {
       const res = await fetch(`/api/contracts/${contractId}`);
       const overviewRes = await fetch(`/api/contracts/${contractId}/overview`);
@@ -544,6 +561,38 @@ export default function BuyerDashboard() {
         }
         
         initFinancialsForm(data, overviewData);
+
+        // Fetch milestones
+        setLoadingMilestones(true);
+        try {
+          const mRes = await fetch(`/api/contracts/${contractId}/milestones`);
+          if (mRes.ok) {
+            setViewingContractMilestones(await mRes.json());
+          } else {
+            const err = await mRes.json();
+            setMilestonesLoadError(err.error || "Failed to load crop milestones.");
+          }
+        } catch (e: any) {
+          setMilestonesLoadError(e.message || "Failed to fetch milestones.");
+        } finally {
+          setLoadingMilestones(false);
+        }
+
+        // Fetch tasks
+        setLoadingTasks(true);
+        try {
+          const tRes = await fetch(`/api/contracts/${contractId}/tasks`);
+          if (tRes.ok) {
+            setViewingContractTasks(await tRes.json());
+          } else {
+            const err = await tRes.json();
+            setTasksLoadError(err.error || "Failed to load crop tasks.");
+          }
+        } catch (e: any) {
+          setTasksLoadError(e.message || "Failed to fetch tasks.");
+        } finally {
+          setLoadingTasks(false);
+        }
       }
     } catch (err) {
       console.error("Error fetching contract details:", err);
@@ -2062,7 +2111,7 @@ export default function BuyerDashboard() {
       {/* Contract Details / Timeline Modal Overlay */}
       {viewingContractId && (
         <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-lg w-full relative space-y-6 my-8 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-lg w-full relative my-8 animate-in slide-in-from-bottom-4 duration-300 max-h-[calc(100vh-4rem)] flex flex-col">
             <button
               onClick={() => setViewingContractId(null)}
               className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-brandy/20 text-kombu/60 hover:text-pine transition-colors cursor-pointer"
@@ -2077,7 +2126,7 @@ export default function BuyerDashboard() {
                 <p className="text-xs text-kombu/70 mt-3">Fetching contract details...</p>
               </div>
             ) : viewingContract ? (
-              <div className="space-y-6">
+              <div className="flex flex-col flex-1 min-h-0 space-y-4 mt-2">
                 <div>
                   <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
                     {viewingContract.crop?.name || "Crop"} Contract Details
@@ -2093,399 +2142,630 @@ export default function BuyerDashboard() {
                   </p>
                 </div>
 
-                {/* Contract Health Overview Banner */}
-                {viewingContractOverview && (
-                  <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
-                    viewingContractOverview.health === "COMPLETED" ? "bg-dingley/15 text-pine border border-dingley/30" :
-                    viewingContractOverview.health === "NEEDS_ATTENTION" ? "bg-red-50 text-red-800 border border-red-200" :
-                    "bg-copper/10 text-copper border border-copper/30"
-                  }`}>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Contract Health Status</p>
-                      <p className="text-base font-bold mt-0.5">
-                        {viewingContractOverview.health.replace("_", " ")}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Timeline Progress</p>
-                      <p className="text-base font-bold mt-0.5">{viewingContractOverview.progressPercentage}%</p>
-                    </div>
-                  </div>
-                )}
+                {/* Tab Navigation Bar */}
+                <div className="flex border-b border-brandy/20 overflow-x-auto scrollbar-none gap-2 pb-1 text-xs font-semibold shrink-0">
+                  {[
+                    "Overview",
+                    "Financials",
+                    "Yield",
+                    "Milestones",
+                    "Tasks",
+                    "Progress",
+                    "Monitoring",
+                  ].map((tab) => {
+                    const isActive = activeDetailTab === tab;
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setActiveDetailTab(tab as any)}
+                        className={`px-3 py-1.5 rounded-t-lg transition-colors whitespace-nowrap cursor-pointer ${
+                          isActive
+                            ? "bg-pine text-brandy font-bold border-b-2 border-pine"
+                            : "text-kombu/60 hover:text-pine hover:bg-brandy/5"
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    );
+                  })}
+                </div>
 
-
-                {/* Timeline Tracker */}
-                <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4">
-                  <h4 className="text-xs font-bold text-pine uppercase tracking-wider">Cultivation Timeline</h4>
-                  <div className="relative border-l border-brandy/40 ml-2.5 pl-5 space-y-4 py-1 text-xs">
-                    {/* Step 1: Proposed */}
-                    <div className="relative">
-                      <span className="absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full bg-dingley flex items-center justify-center text-white ring-4 ring-white">
-                        <Check className="w-2.5 h-2.5" />
-                      </span>
-                      <p className="font-bold text-pine">Contract Proposed</p>
-                      <p className="text-[10px] text-kombu/60 mt-0.5">
-                        {new Date(viewingContract.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-
-                    {/* Step 2: Decision (Accept/Reject) */}
-                    <div className="relative">
-                      <span className={`absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white ring-4 ring-white ${
-                        viewingContract.decisionDate ? "bg-dingley" : "bg-brandy/40"
-                      }`}>
-                        {viewingContract.decisionDate ? <Check className="w-2.5 h-2.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </span>
-                      <p className={`font-bold ${viewingContract.decisionDate ? "text-pine" : "text-kombu/40"}`}>
-                        {viewingContract.status === "REJECTED" ? "Landowner Rejected" : "Landowner Accepted"}
-                      </p>
-                      {viewingContract.decisionDate && (
-                        <p className="text-[10px] text-kombu/60 mt-0.5">
-                          {new Date(viewingContract.decisionDate).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Step 3: Activated */}
-                    {(viewingContract.status === "ACTIVE" || viewingContract.status === "COMPLETED" || viewingContract.activatedAt) && (
-                      <div className="relative">
-                        <span className="absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full bg-dingley flex items-center justify-center text-white ring-4 ring-white">
-                          <Check className="w-2.5 h-2.5" />
-                        </span>
-                        <p className="font-bold text-pine">Contract Activated</p>
-                        {viewingContract.activatedAt && (
-                          <p className="text-[10px] text-kombu/60 mt-0.5">
-                            {new Date(viewingContract.activatedAt).toLocaleString()}
-                          </p>
-                        )}
+                {/* Active Tab Content Area */}
+                <div className="overflow-y-auto flex-1 pr-1 space-y-4 min-h-0">
+                  {activeDetailTab === "Overview" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Timeline Tracker */}
+                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4">
+                        <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
+                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Timeline Tracker</h4>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                            viewingContract.status === "ACTIVE" ? "bg-dingley/20 text-pine" : "bg-brandy/20 text-pine"
+                          }`}>
+                            {viewingContract.status}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-xs font-medium text-kombu">
+                          <div>
+                            <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Proposed Start Date</span>
+                            <span>{new Date(viewingContract.startDate).toLocaleDateString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Target Harvest Date</span>
+                            <span>{new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}</span>
+                          </div>
+                        </div>
                       </div>
-                    )}
 
-                    {/* Expected Harvest */}
-                    <div className="relative">
-                      <span className="absolute -left-[27.5px] top-0.5 w-4 h-4 rounded-full bg-brandy/40 flex items-center justify-center text-white ring-4 ring-white">
-                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                      </span>
-                      <p className="font-bold text-kombu/50">Expected Harvest Period</p>
-                      <p className="text-[10px] text-kombu/40 mt-0.5">
-                        Target harvest: {new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Grid info */}
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Buyer Involved</span>
-                    <span className="font-bold text-pine">{viewingContract.buyer?.name}</span>
-                    <span className="text-[10px] text-kombu/60 block">{viewingContract.buyer?.phone}</span>
-                  </div>
-                  <div>
-                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Farmer Owner</span>
-                    <span className="font-bold text-pine">{viewingContract.landowner?.name}</span>
-                    <span className="text-[10px] text-kombu/60 block">{viewingContract.landowner?.phone}</span>
-                  </div>
-                  <div className="col-span-2 border-t border-brandy/20 pt-3">
-                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Land parcel details</span>
-                    <span className="font-bold text-pine">{viewingContract.land?.name}</span>
-                    <span className="text-kombu/70 block mt-0.5">
-                      {viewingContract.land?.village}, {viewingContract.land?.district}, {viewingContract.land?.state}
-                    </span>
-                  </div>
-                  <div className="border-t border-brandy/20 pt-3">
-                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Proposed Area</span>
-                    <span className="font-bold text-pine text-sm">{viewingContract.landArea} Acres</span>
-                  </div>
-                  <div className="border-t border-brandy/20 pt-3">
-                    <span className="text-kombu/60 block uppercase font-bold tracking-wider">Payout Valuation</span>
-                    <span className="font-bold text-copper text-sm">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
-                  </div>
-                </div>
-
-                {/* 1. Yield & Fulfillment Card */}
-                {viewingContractOverview?.yieldSummary && (
-                  <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 animate-in fade-in text-xs">
-                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider flex items-center justify-between">
-                      <span>Expected Production & Yield</span>
-                      {viewingContractOverview.yieldSummary.fulfillmentStatus && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                          viewingContractOverview.yieldSummary.fulfillmentStatus === "FULFILLED" ? "bg-dingley/20 text-pine" :
-                          viewingContractOverview.yieldSummary.fulfillmentStatus === "OVERFULFILLED" ? "bg-green-100 text-green-800" :
-                          viewingContractOverview.yieldSummary.fulfillmentStatus === "PARTIAL" ? "bg-amber-100 text-amber-800" :
-                          "bg-brandy/20 text-pine"
+                      {/* Contract Health Overview Banner */}
+                      {viewingContractOverview && (
+                        <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
+                          viewingContractOverview.health === "COMPLETED" ? "bg-dingley/15 text-pine border border-dingley/30" :
+                          viewingContractOverview.health === "NEEDS_ATTENTION" ? "bg-red-50 text-red-800 border border-red-200" :
+                          "bg-copper/10 text-copper border border-copper/30"
                         }`}>
-                          {viewingContractOverview.yieldSummary.fulfillmentStatus}
-                        </span>
-                      )}
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/60 p-3 rounded-xl border border-brandy/10">
-                        <span className="text-[10px] text-kombu/60 block uppercase font-bold tracking-wide">Estimated yield</span>
-                        <span className="font-bold text-pine text-sm">
-                          {viewingContractOverview.yieldSummary.estimatedQuantity !== null
-                            ? `${viewingContractOverview.yieldSummary.estimatedQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
-                            : "Unavailable"}
-                        </span>
-                      </div>
-                      <div className="bg-white/60 p-3 rounded-xl border border-brandy/10">
-                        <span className="text-[10px] text-kombu/60 block uppercase font-bold tracking-wide">Actual harvested</span>
-                        <span className="font-bold text-copper text-sm">
-                          {viewingContractOverview.yieldSummary.actualQuantity !== null
-                            ? `${viewingContractOverview.yieldSummary.actualQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
-                            : "Not recorded yet"}
-                        </span>
-                      </div>
-                      {viewingContractOverview.yieldSummary.estimatedQuantity !== null && viewingContractOverview.yieldSummary.fulfillmentPercentage !== null && (
-                        <div className="col-span-2">
-                          <div className="flex justify-between items-center text-[10px] font-bold text-kombu/70 mb-1">
-                            <span>Fulfillment completion</span>
-                            <span>{viewingContractOverview.yieldSummary.fulfillmentPercentage.toFixed(1)}%</span>
+                          <div>
+                            <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Contract Health Status</p>
+                            <p className="text-base font-bold mt-0.5">
+                              {viewingContractOverview.health.replace("_", " ")}
+                            </p>
                           </div>
-                          <div className="bg-brandy/20 rounded-full h-2 w-full overflow-hidden">
-                            <div
-                              className="bg-dingley h-2 rounded-full transition-all duration-500"
-                              style={{ width: `${Math.min(viewingContractOverview.yieldSummary.fulfillmentPercentage, 100)}%` }}
-                            />
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Timeline Progress</p>
+                            <p className="text-base font-bold mt-0.5">{viewingContractOverview.progressPercentage}%</p>
                           </div>
                         </div>
                       )}
-                    </div>
-                  </div>
-                )}
 
-                {/* 2. Financial Allocation Card */}
-                {viewingContractOverview?.financialSummary && (
-                  <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 animate-in fade-in text-xs">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold text-pine uppercase tracking-wider">Financial Allocation</h4>
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                        viewingContractOverview.financialSummary.isConfigured
-                          ? "bg-dingley/20 text-pine"
-                          : "bg-amber-100 text-amber-800"
-                      }`}>
-                        {viewingContractOverview.financialSummary.isConfigured ? "Agreed Budget" : "Tentative Allocation"}
-                      </span>
-                    </div>
+                      {/* Grid Info */}
+                      <div className="grid grid-cols-2 gap-4 text-xs font-medium">
+                        <div>
+                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Buyer Involved</span>
+                          <span className="font-bold text-pine">{viewingContract.buyer?.name}</span>
+                          <span className="text-[10px] text-kombu/60 block">{viewingContract.buyer?.phone}</span>
+                        </div>
+                        <div>
+                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Farmer Owner</span>
+                          <span className="font-bold text-pine">{viewingContract.landowner?.name}</span>
+                          <span className="text-[10px] text-kombu/60 block">{viewingContract.landowner?.phone}</span>
+                        </div>
+                        <div className="col-span-2 border-t border-brandy/20 pt-3">
+                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Land Parcel Details</span>
+                          <span className="font-bold text-pine">{viewingContract.land?.name}</span>
+                          <span className="text-kombu/70 block mt-0.5">
+                            {viewingContract.land?.village}, {viewingContract.land?.district}, {viewingContract.land?.state}
+                          </span>
+                        </div>
+                        <div className="border-t border-brandy/20 pt-3">
+                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Proposed Area</span>
+                          <span className="font-bold text-pine text-sm">{viewingContract.landArea} Acres</span>
+                        </div>
+                        <div className="border-t border-brandy/20 pt-3">
+                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Payout Valuation</span>
+                          <span className="font-bold text-copper text-sm">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
 
-                    {/* Budget Details Grid */}
-                    <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
-                      <div>
-                        <span className="text-[10px] text-kombu/60 block">Landowner payment</span>
-                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.landownerAmount.toLocaleString("en-IN")}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-kombu/60 block">Workforce budget</span>
-                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.workforceBudget.toLocaleString("en-IN")}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-kombu/60 block">Logistics budget</span>
-                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.logisticsBudget.toLocaleString("en-IN")}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-kombu/60 block">Platform service fee (10%)</span>
-                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.platformFee.toLocaleString("en-IN")}</span>
-                      </div>
-                      <div className="col-span-2 border-t border-brandy/25 pt-2">
-                        <span className="text-[10px] text-kombu/60 block">Reserve / Contingency</span>
-                        <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.reserveBudget.toLocaleString("en-IN")}</span>
-                      </div>
-                    </div>
+                      {viewingContract.notes && (
+                        <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
+                          <strong>Proposal Note log:</strong> "{viewingContract.notes}"
+                        </div>
+                      )}
 
-                    {/* Edit Form for Buyer */}
-                    {(viewingContract.status === "ACCEPTED" || viewingContract.status === "ACTIVE") && (
-                      <form onSubmit={handleSaveFinancials} className="space-y-3 pt-2">
-                        <h5 className="text-[10px] font-bold text-pine uppercase tracking-wider">Configure Custom Budgets</h5>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Landowner Amount</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
-                              value={editLandownerAmount}
-                              onChange={(e) => setEditLandownerAmount(e.target.value)}
-                              required
-                            />
+                      {viewingContract.status === "REJECTED" && viewingContract.rejectionReason && (
+                        <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
+                          <strong>Landowner Rejection Reason:</strong> "{viewingContract.rejectionReason}"
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeDetailTab === "Financials" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Financial Allocation Card (Buyer View) */}
+                      {loadingFinancials ? (
+                        <div className="p-3 bg-brandy/5 border border-brandy/20 rounded-2xl flex items-center justify-center text-xs text-kombu/60">
+                          <Loader2 className="w-4 h-4 animate-spin text-dingley" />
+                          <span className="ml-2">Loading financial allocations...</span>
+                        </div>
+                      ) : financialsLoadError ? (
+                        <div className="p-3.5 bg-red-50 text-red-800 border border-red-200 rounded-2xl text-xs font-semibold">
+                          Financial allocations details unavailable: {financialsLoadError}
+                        </div>
+                      ) : viewingContractOverview?.financialSummary ? (
+                        <>
+                          <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
+                            <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
+                              <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Budget Allocation</h4>
+                              <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
+                                viewingContractOverview.financialSummary.isConfigured ? "bg-dingley/20 text-pine" : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {viewingContractOverview.financialSummary.isConfigured ? "Agreed Setup" : "Awaiting Allocation"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
+                              <div>
+                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Landowner Payout (50%)</span>
+                                <span className="font-bold text-pine">₹{viewingContractOverview.financialSummary.landownerAmount.toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Workforce Budget (25%)</span>
+                                <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.workforceBudget.toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Logistics Budget (10%)</span>
+                                <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.logisticsBudget.toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Platform Service Fee (10%)</span>
+                                <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.platformFee.toLocaleString("en-IN")}</span>
+                              </div>
+                              <div className="col-span-2 border-t border-brandy/25 pt-2">
+                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Total Contract Valuation</span>
+                                <span className="font-bold text-copper text-sm">₹{viewingContractOverview.financialSummary.totalContractValue.toLocaleString("en-IN")}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Workforce Budget</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
-                              value={editWorkforceBudget}
-                              onChange={(e) => setEditWorkforceBudget(e.target.value)}
-                              required
-                            />
+
+                          {/* Financial custom settings editor form for Buyer */}
+                          {viewingContract.status === "ACCEPTED" && (
+                            <form onSubmit={handleSaveFinancials} className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs animate-in fade-in">
+                              <h4 className="text-xs font-bold text-pine uppercase tracking-wider border-b border-brandy/10 pb-2 font-bold">
+                                Customize Budget Allocations
+                              </h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Landowner Payout (₹)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    value={editLandownerAmount}
+                                    onChange={(e) => setEditLandownerAmount(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Workforce Budget (₹)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    value={editWorkforceBudget}
+                                    onChange={(e) => setEditWorkforceBudget(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Logistics Budget (₹)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    value={editLogisticsBudget}
+                                    onChange={(e) => setEditLogisticsBudget(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Platform Service Fee (₹)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    value={editPlatformFee}
+                                    onChange={(e) => setEditPlatformFee(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Reserve Budget (₹)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    value={editReserveBudget}
+                                    onChange={(e) => setEditReserveBudget(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                              </div>
+
+                              {financialsError && (
+                                <p className="text-[10px] text-red-650 font-bold bg-red-50 p-2 rounded-lg">{financialsError}</p>
+                              )}
+
+                              <button
+                                type="submit"
+                                disabled={savingFinancials}
+                                className="w-full py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-lg text-xs shadow transition-colors disabled:opacity-50 cursor-pointer"
+                              >
+                                {savingFinancials ? "Saving custom allocations..." : "Save Financial Allocation"}
+                              </button>
+                            </form>
+                          )}
+                        </>
+                      ) : (
+                        <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
+                          No financials allocations initialized for this contract.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeDetailTab === "Yield" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Yield Allocation Card (Buyer View) */}
+                      {loadingYield ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-dingley" />
+                          <span className="text-[10px] text-kombu/60 ml-2">Loading yield tracking details...</span>
+                        </div>
+                      ) : yieldLoadError ? (
+                        <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
+                          <p className="font-semibold text-[10px]">Yield tracking details unavailable</p>
+                          <p className="text-[9px] opacity-85 mt-0.5">{yieldLoadError}</p>
+                        </div>
+                      ) : viewingContractOverview?.yieldSummary ? (
+                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
+                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider flex items-center justify-between border-b border-brandy/10 pb-2 font-bold">
+                            <span>Crop Production & Yield</span>
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
+                              viewingContractOverview.yieldSummary.fulfillmentStatus === "FULFILLED" ? "bg-dingley/20 text-pine" :
+                              viewingContractOverview.yieldSummary.fulfillmentStatus === "OVERFULFILLED" ? "bg-green-100 text-green-800" :
+                              viewingContractOverview.yieldSummary.fulfillmentStatus === "PARTIAL" ? "bg-amber-100 text-amber-800" :
+                              "bg-brandy/20 text-pine"
+                            }`}>
+                              {viewingContractOverview.yieldSummary.fulfillmentStatus}
+                            </span>
+                          </h4>
+
+                          <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
+                            <div>
+                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Estimated Production Yield</span>
+                              <span className="font-bold text-pine">
+                                {viewingContractOverview.yieldSummary.estimatedQuantity !== null
+                                  ? `${viewingContractOverview.yieldSummary.estimatedQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
+                                  : "Calculating..."}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Recorded Harvest Yield</span>
+                              <span className="font-bold text-pine">
+                                {viewingContractOverview.yieldSummary.actualQuantity !== null
+                                  ? `${viewingContractOverview.yieldSummary.actualQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
+                                  : "Awaiting Harvest..."}
+                              </span>
+                            </div>
                           </div>
+                        </div>
+                      ) : (
+                        <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
+                          Yield parameters not initialized yet.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeDetailTab === "Milestones" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Crop Milestone Plan Card (Buyer View) */}
+                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs">
+                        <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
                           <div>
-                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Logistics Budget</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
-                              value={editLogisticsBudget}
-                              onChange={(e) => setEditLogisticsBudget(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Platform Service Fee</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
-                              value={editPlatformFee}
-                              onChange={(e) => setEditPlatformFee(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Reserve Budget</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
-                              value={editReserveBudget}
-                              onChange={(e) => setEditReserveBudget(e.target.value)}
-                              required
-                            />
+                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Crop Milestone Plan</h4>
+                            <p className="text-[9px] text-kombu/60 mt-0.5">
+                              Planned System Schedule (Compare with Farm Progress History for actual progress)
+                            </p>
                           </div>
                         </div>
 
-                        {financialsError && (
-                          <p className="text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded-lg">{financialsError}</p>
+                        {loadingMilestones ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-4 h-4 animate-spin text-dingley" />
+                            <span className="text-[10px] text-kombu/60 ml-2">Loading crop milestones...</span>
+                          </div>
+                        ) : milestonesLoadError ? (
+                          <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
+                            <p className="font-semibold text-[10px]">Crop milestone plan unavailable</p>
+                            <p className="text-[9px] opacity-85 mt-0.5">{milestonesLoadError}</p>
+                          </div>
+                        ) : viewingContractMilestones.length > 0 ? (
+                          <div className="relative border-l border-brandy/30 ml-2 pl-4 space-y-3 py-1">
+                            {viewingContractMilestones.map((ms: any) => {
+                              const statusColors = 
+                                ms.status === "COMPLETED" ? "bg-dingley/20 text-pine" :
+                                ms.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-800" :
+                                ms.status === "OVERDUE" ? "bg-red-100 text-red-800 font-bold" :
+                                "bg-gray-100 text-gray-700";
+
+                              return (
+                                <div key={ms.id} className="relative">
+                                  <span className={`absolute -left-[22px] top-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold ring-4 ring-white ${
+                                    ms.status === "COMPLETED" ? "bg-dingley text-white" : "bg-brandy/30 text-kombu"
+                                  }`}>
+                                    {ms.sequence}
+                                  </span>
+                                  <div className="bg-white/60 p-2.5 rounded-xl border border-brandy/10 flex justify-between items-start gap-4">
+                                    <div>
+                                      <p className="font-bold text-pine text-xs">{ms.title}</p>
+                                      <p className="text-[10px] text-kombu/60 mt-0.5">
+                                        Planned Date: {new Date(ms.plannedDate).toLocaleDateString("en-IN", {
+                                          day: "numeric",
+                                          month: "short",
+                                          year: "numeric"
+                                        })}
+                                      </p>
+                                      {ms.completedAt && (
+                                        <p className="text-[9px] text-dingley font-semibold mt-0.5">
+                                          Completed: {new Date(ms.completedAt).toLocaleDateString("en-IN", {
+                                            day: "numeric",
+                                            month: "short",
+                                            year: "numeric"
+                                          })}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${statusColors}`}>
+                                      {ms.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60 font-medium italic">
+                            No milestones generated for this contract.
+                          </div>
                         )}
-
-                        <button
-                          type="submit"
-                          disabled={savingFinancials}
-                          className="w-full py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-lg text-xs shadow transition-colors disabled:opacity-50 cursor-pointer animate-in fade-in"
-                        >
-                          {savingFinancials ? "Saving custom allocations..." : "Save Financial Allocation"}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                )}
-
-                {viewingContract.notes && (
-                  <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
-                    <strong>Proposal Note log:</strong> "{viewingContract.notes}"
-                  </div>
-                )}
-
-                {viewingContract.status === "REJECTED" && viewingContract.rejectionReason && (
-                  <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
-                    <strong>Landowner Rejection Reason:</strong> "{viewingContract.rejectionReason}"
-                  </div>
-                )}
-
-                {/* Milestone Stepper */}
-                {viewingContract.status === "ACTIVE" && (
-                  <div className="border-t border-brandy/20 pt-4 space-y-3">
-                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Milestone Stepper</h4>
-                    <div className="flex justify-between items-center text-[10px] text-kombu/70">
-                      {[
-                        { key: "LAND_PREPARATION", label: "Prep" },
-                        { key: "SOWING", label: "Sowing" },
-                        { key: "GROWING", label: "Growing" },
-                        { key: "HARVEST_READY", label: "Harvest Ready" },
-                        { key: "HARVEST_COMPLETED", label: "Harvested" },
-                      ].map((step, idx) => {
-                        const isCompleted = viewingContract.progressUpdates?.some((pu: any) => pu.stage === step.key);
-                        const isLatest = viewingContract.progressUpdates && viewingContract.progressUpdates[viewingContract.progressUpdates.length - 1]?.stage === step.key;
-                        return (
-                          <div key={step.key} className="flex flex-col items-center flex-1 relative">
-                            {/* Connector line */}
-                            {idx > 0 && (
-                              <div className={`absolute left-[-50%] right-[50%] top-2.5 h-[2px] z-0 ${
-                                isCompleted ? "bg-dingley" : "bg-brandy/20"
-                              }`} />
-                            )}
-                            <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-[9px] relative z-10 ${
-                              isLatest ? "bg-pine text-white ring-4 ring-pine/20" :
-                              isCompleted ? "bg-dingley text-white" :
-                              "bg-brandy/20 text-kombu/45"
-                            }`}>
-                              {idx + 1}
-                            </div>
-                            <span className={`mt-1 font-semibold ${isLatest ? "text-pine font-bold" : isCompleted ? "text-dingley" : "text-kombu/50"}`}>{step.label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Farm Progress Updates Timeline */}
-                {viewingContract.status === "ACTIVE" && (
-                  <div className="border-t border-brandy/20 pt-4 space-y-3">
-                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Farm Progress History</h4>
-                    {!viewingContract.progressUpdates || viewingContract.progressUpdates.length === 0 ? (
-                      <p className="text-xs text-kombu/50 italic">No farming progress updates yet.</p>
-                    ) : (
-                      <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
-                        {viewingContract.progressUpdates.map((update: any) => (
-                          <div key={update.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
-                              <span className="font-bold text-pine uppercase tracking-wide text-[10px]">
-                                {update.stage.replace("_", " ")}
-                              </span>
-                              <span className="text-[9px] text-kombu/60">
-                                {new Date(update.createdAt).toLocaleString()}
-                              </span>
-                            </div>
-                            {update.notes && (
-                              <p className="text-[10px] text-kombu/80 mt-1 italic font-medium">"{update.notes}"</p>
-                            )}
-                          </div>
-                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                {/* Step 8 — Negotiation History UI */}
-                {viewingContract.history && viewingContract.history.length > 0 && (
-                  <div className="border-t border-brandy/20 pt-4 space-y-3">
-                    <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-semibold">Negotiation History ({viewingContract.history.length} previous rounds)</h4>
-                    <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
-                      {viewingContract.history.map((hist: any) => (
-                        <div key={hist.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1.5">
-                          <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
-                            <span className="font-bold text-pine">Round {hist.revision}</span>
-                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                              hist.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                              hist.status === "CANCELLED" ? "bg-gray-150 text-gray-500" :
-                              "bg-gray-100 text-gray-700"
+                  {activeDetailTab === "Tasks" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Crop Actionable Tasks Card (Buyer View) */}
+                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs">
+                        <div>
+                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Crop Actionable Tasks</h4>
+                          <p className="text-[9px] text-kombu/60 mt-0.5">
+                            Detailed operational task checklist per milestone stage (Read-Only)
+                          </p>
+                        </div>
+
+                        {loadingTasks ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-4 h-4 animate-spin text-dingley" />
+                            <span className="text-[10px] text-kombu/60 ml-2">Loading crop tasks...</span>
+                          </div>
+                        ) : tasksLoadError ? (
+                          <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
+                            <p className="font-semibold text-[10px]">Crop tasks unavailable</p>
+                            <p className="text-[9px] opacity-85 mt-0.5">{tasksLoadError}</p>
+                          </div>
+                        ) : viewingContractTasks.length > 0 ? (
+                          <div className="space-y-4">
+                            {viewingContractMilestones.map((ms: any) => {
+                              const msTasks = viewingContractTasks.filter((t) => t.milestoneId === ms.id);
+                              if (msTasks.length === 0) return null;
+
+                              return (
+                                <div key={ms.id} className="bg-white/60 p-3.5 rounded-xl border border-brandy/10 space-y-2">
+                                  <h5 className="font-bold text-pine text-xs border-b border-brandy/10 pb-1.5 flex justify-between items-center font-bold">
+                                    <span>Stage {ms.sequence}: {ms.title}</span>
+                                    <span className="text-[9px] px-1.5 py-0.2 bg-pine/10 text-pine rounded font-semibold uppercase">
+                                      {ms.status}
+                                    </span>
+                                  </h5>
+                                  <div className="space-y-2 pt-1">
+                                    {msTasks.map((task: any) => {
+                                      const priorityColors = 
+                                        task.priority === "CRITICAL" ? "text-red-655 bg-red-50 border border-red-100" :
+                                        task.priority === "HIGH" ? "text-amber-700 bg-amber-50 border border-amber-100" :
+                                        task.priority === "MEDIUM" ? "text-pine bg-dingley/10 border border-dingley/20" :
+                                        "text-kombu/60 bg-gray-50 border border-gray-100";
+
+                                      const statusBadge = 
+                                        task.status === "COMPLETED" ? "text-dingley border border-dingley/20 bg-dingley/5" :
+                                        task.status === "IN_PROGRESS" ? "text-amber-600 border border-amber-200 bg-amber-50" :
+                                        task.status === "OVERDUE" ? "text-red-600 border border-red-200 bg-red-50 font-bold animate-pulse" :
+                                        "text-kombu/40 border border-gray-200 bg-gray-50";
+
+                                      return (
+                                        <div key={task.id} className="flex justify-between items-start gap-3 pl-1 text-[11px] border-b border-brandy/5 pb-2 last:border-0 last:pb-0">
+                                          <div className="flex-1">
+                                            <p className={`font-semibold ${task.status === 'COMPLETED' ? 'line-through text-kombu/40' : 'text-kombu'}`}>
+                                              {task.sequence}. {task.title}
+                                            </p>
+                                            {task.description && (
+                                              <p className="text-[9.5px] text-kombu/50 mt-0.5">{task.description}</p>
+                                            )}
+                                            <div className="flex gap-2 items-center mt-1 text-[8.5px]">
+                                              <span className={`px-1 rounded ${priorityColors}`}>{task.priority} Priority</span>
+                                              {task.dueDate && (
+                                                <span className="text-kombu/50">
+                                                  Due: {new Date(task.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${statusBadge}`}>
+                                            {task.status}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60 font-medium italic">
+                            No actionable tasks generated for this contract status.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeDetailTab === "Progress" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Milestone Stepper */}
+                      {viewingContract.status === "ACTIVE" && (
+                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
+                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Milestone Stepper</h4>
+                          <div className="flex justify-between items-center text-[10px] text-kombu/70">
+                            {[
+                              { key: "LAND_PREPARATION", label: "Prep" },
+                              { key: "SOWING", label: "Sowing" },
+                              { key: "GROWING", label: "Growing" },
+                              { key: "HARVEST_READY", label: "Harvest Ready" },
+                              { key: "HARVEST_COMPLETED", label: "Harvested" },
+                            ].map((step, idx) => {
+                              const isCompleted = viewingContract.progressUpdates?.some((pu: any) => pu.stage === step.key);
+                              const isLatest = viewingContract.progressUpdates && viewingContract.progressUpdates[viewingContract.progressUpdates.length - 1]?.stage === step.key;
+                              return (
+                                <div key={step.key} className="flex flex-col items-center flex-1 relative">
+                                  {/* Connector line */}
+                                  {idx > 0 && (
+                                    <div className={`absolute left-[-50%] right-[50%] top-2.5 h-[2px] z-0 ${
+                                      isCompleted ? "bg-dingley" : "bg-brandy/20"
+                                    }`} />
+                                  )}
+                                  <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-[9px] relative z-10 ${
+                                    isLatest ? "bg-pine text-white ring-4 ring-pine/20" :
+                                    isCompleted ? "bg-dingley text-white" :
+                                    "bg-brandy/20 text-kombu/45"
+                                  }`}>
+                                    {idx + 1}
+                                  </div>
+                                  <span className={`mt-1 font-semibold ${isLatest ? "text-pine font-bold" : isCompleted ? "text-dingley" : "text-kombu/50"}`}>{step.label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Farm Progress Updates Timeline */}
+                      {viewingContract.status === "ACTIVE" && (
+                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
+                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Farm Progress History</h4>
+                          {!viewingContract.progressUpdates || viewingContract.progressUpdates.length === 0 ? (
+                            <p className="text-xs text-kombu/50 italic">No farming progress updates yet.</p>
+                          ) : (
+                            <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                              {viewingContract.progressUpdates.map((update: any) => (
+                                <div key={update.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1">
+                                  <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
+                                    <span className="font-bold text-pine uppercase tracking-wide text-[10px]">
+                                      {update.stage.replace("_", " ")}
+                                    </span>
+                                    <span className="text-[9px] text-kombu/60">
+                                      {new Date(update.createdAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {update.notes && (
+                                    <p className="text-[10px] text-kombu/80 mt-1 italic font-medium">"{update.notes}"</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Negotiation History UI */}
+                      {viewingContract.history && viewingContract.history.length > 0 && (
+                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
+                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-semibold">Negotiation History ({viewingContract.history.length} previous rounds)</h4>
+                          <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                            {viewingContract.history.map((hist: any) => (
+                              <div key={hist.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1.5">
+                                <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
+                                  <span className="font-bold text-pine">Round {hist.revision}</span>
+                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                    hist.status === "REJECTED" ? "bg-red-100 text-red-700" :
+                                    hist.status === "CANCELLED" ? "bg-gray-150 text-gray-500" :
+                                    "bg-gray-100 text-gray-700"
+                                  }`}>
+                                    {hist.status.replace("_", " ")}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-[10px] text-kombu/70">
+                                  <div>Proposed Price: <strong className="text-pine">₹{hist.proposedPrice.toLocaleString("en-IN")}</strong></div>
+                                  <div>Area: <strong>{hist.landArea} Acres</strong></div>
+                                  <div>Harvest Date: <strong>{new Date(hist.expectedHarvestDate).toLocaleDateString()}</strong></div>
+                                  <div>Quantity: <strong>{hist.allocatedQuantity.toFixed(1)} Tonnes</strong></div>
+                                </div>
+                                {hist.notes && (
+                                  <p className="text-[10px] text-kombu/60 italic">Buyer Note: "{hist.notes}"</p>
+                                )}
+                                {hist.rejectionReason && (
+                                  <p className="text-[10px] text-red-655 bg-red-50 p-1.5 rounded">Rejection Reason: "{hist.rejectionReason}"</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeDetailTab === "Monitoring" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Contract Monitoring & Alerts (Buyer View) */}
+                      {viewingContractOverview && (
+                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
+                          <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
+                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Contract Alert Summary</h4>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              viewingContractOverview.activeAlertCount > 0 ? "bg-red-100 text-red-700" : "bg-dingley/20 text-pine"
                             }`}>
-                              {hist.status.replace("_", " ")}
+                              {viewingContractOverview.activeAlertCount} Issue{viewingContractOverview.activeAlertCount !== 1 ? "s" : ""} Active
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-[10px] text-kombu/70">
-                            <div>Proposed Price: <strong className="text-pine">₹{hist.proposedPrice.toLocaleString("en-IN")}</strong></div>
-                            <div>Area: <strong>{hist.landArea} Acres</strong></div>
-                            <div>Harvest Date: <strong>{new Date(hist.expectedHarvestDate).toLocaleDateString()}</strong></div>
-                            <div>Quantity: <strong>{hist.allocatedQuantity.toFixed(1)} Tonnes</strong></div>
-                          </div>
-                          {hist.notes && (
-                            <p className="text-[10px] text-kombu/60 italic">Buyer Note: "{hist.notes}"</p>
-                          )}
-                          {hist.rejectionReason && (
-                            <p className="text-[10px] text-red-600 bg-red-50 p-1.5 rounded">Rejection Reason: "{hist.rejectionReason}"</p>
+
+                          {viewingContractOverview.activeAlertCount > 0 ? (
+                            <div className="space-y-2.5">
+                              {viewingContractOverview.monitoringAlertsSummary.map((alert: any) => {
+                                const alertColors = 
+                                  alert.severity === "CRITICAL" ? "bg-red-50 text-red-800 border-red-200" :
+                                  alert.severity === "WARNING" ? "bg-amber-50 text-amber-805 border-amber-200" :
+                                  "bg-blue-50 text-blue-800 border-blue-200";
+
+                                return (
+                                  <div key={alert.id || alert.message} className={`p-3 rounded-xl border flex items-start gap-2.5 ${alertColors}`}>
+                                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="font-bold text-[11.5px]">{alert.message}</p>
+                                      {alert.milestone && (
+                                        <p className="text-[9.5px] opacity-80 mt-0.5">Stage: {alert.milestone}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-white/60 border border-brandy/10 rounded-xl text-center text-kombu/60 italic font-medium">
+                              Everything is running on track! No milestones or harvests are delayed.
+                            </div>
                           )}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                <div className="flex justify-end pt-4">
+                {/* Footer close button */}
+                <div className="flex justify-end pt-2 border-t border-brandy/10 shrink-0">
                   <button
                     onClick={() => setViewingContractId(null)}
-                    className="px-5 py-2.5 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer"
+                    className="px-5 py-2.5 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer animate-in fade-in"
                   >
                     Close View
                   </button>

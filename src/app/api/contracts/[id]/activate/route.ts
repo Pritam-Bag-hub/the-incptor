@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { generateMilestonesForContract } from "@/lib/contractHelpers";
+import { generateTasksForContract } from "@/lib/taskHelpers";
 
 export async function PATCH(
   request: Request,
@@ -107,6 +109,12 @@ export async function PATCH(
           unit: contract.demand.quantityUnit,
         },
       });
+
+      // 4. Generate crop milestones (idempotent)
+      await generateMilestonesForContract(contractId, tx);
+
+      // 5. Generate crop tasks (idempotent)
+      await generateTasksForContract(contractId, tx);
 
       return updatedContract;
     });

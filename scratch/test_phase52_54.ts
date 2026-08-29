@@ -17,6 +17,13 @@ async function runTests() {
       throw new Error("Missing seeded test data (users/crops)!");
     }
 
+    // Clean up any stale test users from previous crashed runs
+    await prisma.user.deleteMany({
+      where: {
+        phone: { in: ["+919999999801", "+919999999802"] }
+      }
+    });
+
     // Create a dummy buyer/landowner for unauthorized checks
     const otherBuyer = await prisma.user.create({
       data: {
@@ -467,6 +474,107 @@ async function runTests() {
     } else {
       throw new Error("Overview did not report COMPLETED for completed contract.");
     }
+
+    // Test 24: Safely backfill missing financial allocation records on an existing active contract
+    console.log("\nTest 24: Backfilling missing financial allocation records on ACCEPTED contract...");
+    const landBackfill = await prisma.land.create({
+      data: {
+        ownerId: landowner.id,
+        name: "Phases 5.2-5.4 Backfill Land",
+        size: 5.0,
+        unit: "ACRE",
+        address: "Test Farm Road",
+        village: "Ludhiana",
+        district: "Ludhiana",
+        state: "Punjab",
+        latitude: 30.9,
+        longitude: 75.8,
+        status: LandStatus.AVAILABLE,
+      },
+    });
+
+    const acceptContract = await prisma.contract.create({
+      data: {
+        demandId: demand.id,
+        landId: landBackfill.id,
+        buyerId: buyer.id,
+        landownerId: landowner.id,
+        cropId: crop.id,
+        landArea: 5.0,
+        allocatedQuantity: 10.0,
+        proposedPrice: 150000,
+        startDate: new Date(),
+        expectedHarvestDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        status: ContractStatus.ACCEPTED,
+      },
+    });
+
+    // Simulate backfillFinancialAllocation logic
+    const val = acceptContract.proposedPrice;
+    const backfilledAllocation = await prisma.contractFinancialAllocation.upsert({
+      where: { contractId: acceptContract.id },
+      create: {
+        contractId: acceptContract.id,
+        totalContractValue: val,
+        landownerAmount: val * 0.50,
+        workforceBudget: val * 0.25,
+        logisticsBudget: val * 0.10,
+        platformFee: val * 0.10,
+        reserveBudget: val * 0.05,
+        isConfigured: false,
+      },
+      update: {},
+    });
+
+    if (backfilledAllocation && backfilledAllocation.totalContractValue === 150000 && !backfilledAllocation.isConfigured) {
+      console.log(`✓ Pass: Backfilled financial allocation successfully. Configured: ${backfilledAllocation.isConfigured}, Total: ₹${backfilledAllocation.totalContractValue}`);
+    } else {
+      throw new Error("Financial allocation backfill failed.");
+    }
+
+    // Test 25: Safely backfill missing yield records on an existing active contract
+    console.log("Test 25: Backfilling missing yield records on ACTIVE contract...");
+    await prisma.contract.update({
+      where: { id: acceptContract.id },
+      data: { status: ContractStatus.ACTIVE },
+    });
+
+    // Simulate backfillContractYield logic
+    let estQty: number | null = null;
+    if (crop.metadataJson) {
+      try {
+        const meta = JSON.parse(crop.metadataJson);
+        const yieldPerAcre = parseFloat(meta.expectedYieldPerAcre);
+        if (!isNaN(yieldPerAcre) && yieldPerAcre > 0) {
+          estQty = yieldPerAcre * acceptContract.landArea;
+        }
+      } catch (e) {}
+    }
+
+    const backfilledYield = await prisma.contractYield.upsert({
+      where: { contractId: acceptContract.id },
+      create: {
+        contractId: acceptContract.id,
+        estimatedQuantity: estQty,
+        actualQuantity: null,
+        unit: "TONNE",
+        fulfillmentStatus: FulfillmentStatus.PENDING,
+      },
+      update: {},
+    });
+
+    const expectedBackfillQty = 2.0 * 5.0; // expectedYieldPerAcre is 2.0 * landArea is 5.0 = 10.0 tonnes
+    if (backfilledYield && backfilledYield.estimatedQuantity === expectedBackfillQty && backfilledYield.fulfillmentStatus === FulfillmentStatus.PENDING) {
+      console.log(`✓ Pass: Backfilled yield successfully. Quantity: ${backfilledYield.estimatedQuantity} TONNES, Status: ${backfilledYield.fulfillmentStatus}`);
+    } else {
+      throw new Error(`Yield backfill failed. Expected: ${expectedBackfillQty}, Found: ${backfilledYield?.estimatedQuantity}`);
+    }
+
+    // Clean up backfill test contract
+    await prisma.contractFinancialAllocation.deleteMany({ where: { contractId: acceptContract.id } });
+    await prisma.contractYield.deleteMany({ where: { contractId: acceptContract.id } });
+    await prisma.contract.delete({ where: { id: acceptContract.id } });
+    await prisma.land.delete({ where: { id: landBackfill.id } });
 
     // Clean up test data
     console.log("\nCleaning up integration test data rows...");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { backfillFinancialAllocation } from "@/lib/contractHelpers";
 
 export async function GET(
   request: Request,
@@ -30,11 +31,16 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden: Unauthorized access." }, { status: 403 });
     }
 
-    if (!contract.financialAllocation) {
+    let allocation = contract.financialAllocation;
+    if (!allocation) {
+      allocation = await backfillFinancialAllocation(contractId);
+    }
+
+    if (!allocation) {
       return NextResponse.json({ error: "Financial allocation not configured yet." }, { status: 404 });
     }
 
-    return NextResponse.json(contract.financialAllocation);
+    return NextResponse.json(allocation);
   } catch (error: any) {
     console.error("GET Financials Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

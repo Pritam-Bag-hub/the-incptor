@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FulfillmentStatus } from "@prisma/client";
+import { backfillContractYield } from "@/lib/contractHelpers";
 
 export async function GET(
   request: Request,
@@ -31,11 +32,16 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden: Unauthorized access." }, { status: 403 });
     }
 
-    if (!contract.yield) {
+    let yieldRecord = contract.yield;
+    if (!yieldRecord) {
+      yieldRecord = await backfillContractYield(contractId);
+    }
+
+    if (!yieldRecord) {
       return NextResponse.json({ error: "Yield record not found." }, { status: 404 });
     }
 
-    return NextResponse.json(contract.yield);
+    return NextResponse.json(yieldRecord);
   } catch (error: any) {
     console.error("GET Yield Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -120,7 +126,11 @@ async function handleUpdate(
       });
 
       if (!yieldRecord) {
-        // If not found (should be initialized on activation, but fallback safety), create one
+        yieldRecord = await backfillContractYield(contractId, tx);
+      }
+
+      if (!yieldRecord) {
+        // If not found, create one
         yieldRecord = await tx.contractYield.create({
           data: {
             contractId,

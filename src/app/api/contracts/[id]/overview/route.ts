@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { backfillFinancialAllocation, backfillContractYield } from "@/lib/contractHelpers";
+import { calculateContractMonitoringState } from "@/lib/contractMonitoring";
 
 export async function GET(
   request: Request,
@@ -14,7 +16,7 @@ export async function GET(
 
     const { id: contractId } = await params;
 
-    const contract = await db.contract.findUnique({
+    let contract = await db.contract.findUnique({
       where: { id: contractId },
       include: {
         financialAllocation: true,
@@ -32,6 +34,34 @@ export async function GET(
     // Access check: User must be buyer or landowner
     if (contract.buyerId !== user.id && contract.landownerId !== user.id) {
       return NextResponse.json({ error: "Forbidden: Unauthorized access." }, { status: 403 });
+    }
+
+    // Safely backfill missing records for existing contracts
+    let didBackfill = false;
+    if (!contract.financialAllocation && (contract.status === "ACCEPTED" || contract.status === "ACTIVE" || contract.status === "COMPLETED")) {
+      await backfillFinancialAllocation(contractId);
+      didBackfill = true;
+    }
+    if (!contract.yield && (contract.status === "ACTIVE" || contract.status === "COMPLETED")) {
+      await backfillContractYield(contractId);
+      didBackfill = true;
+    }
+
+    // Re-fetch contract if we did backfill to ensure dynamic parameters are computed on actual db values
+    if (didBackfill) {
+      contract = await db.contract.findUnique({
+        where: { id: contractId },
+        include: {
+          financialAllocation: true,
+          yield: true,
+          progressUpdates: {
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      });
+      if (!contract) {
+        return NextResponse.json({ error: "Contract not found after backfill." }, { status: 500 });
+      }
     }
 
     // Calculations
@@ -75,11 +105,24 @@ export async function GET(
       latestProgress?.stage === "HARVEST_COMPLETED" &&
       contract.yield?.fulfillmentStatus === "PARTIAL";
 
+    const monitoring = await calculateContractMonitoringState(contractId);
+    const activeAlertCount = monitoring ? monitoring.activeAlertCount : 0;
+    const overdueMilestoneCount = monitoring ? monitoring.overdueMilestoneCount : 0;
+    const monitoringAlertsSummary = monitoring
+      ? monitoring.activeAlerts.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          message: a.message,
+          severity: a.severity,
+          type: a.type,
+        }))
+      : [];
+
     let health: "ON_TRACK" | "NEEDS_ATTENTION" | "COMPLETED" = "ON_TRACK";
     if (contract.status === "COMPLETED") {
       health = "COMPLETED";
     } else if (contract.status === "ACTIVE") {
-      if (isHarvestOverdue || hasStaleProgress || hasLowYield) {
+      if (isHarvestOverdue || hasStaleProgress || hasLowYield || activeAlertCount > 0) {
         health = "NEEDS_ATTENTION";
       }
     }
@@ -129,6 +172,9 @@ export async function GET(
         completed: contract.completedAt,
       },
       health,
+      overdueMilestoneCount,
+      activeAlertCount,
+      monitoringAlertsSummary,
     });
   } catch (error: any) {
     console.error("GET Overview Error:", error);
