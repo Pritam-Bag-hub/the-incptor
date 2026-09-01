@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Activity,
   Users,
@@ -18,13 +18,23 @@ import {
   Loader2,
   Compass,
   ArrowLeft,
+  ArrowRight,
   Calendar,
   Layers,
   Sprout,
   DollarSign,
   X,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  Clock,
+  FileText,
+  CheckCircle2,
+  ChevronRight,
+  TrendingUp,
+  Filter,
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 
 type Tab = "overview" | "lands" | "crops" | "contract-requests";
@@ -111,6 +121,7 @@ export default function FarmerDashboard() {
   const [milestonesLoadError, setMilestonesLoadError] = useState("");
   const [tasksLoadError, setTasksLoadError] = useState("");
   const [activeDetailTab, setActiveDetailTab] = useState<"Overview" | "Financials" | "Yield" | "Milestones" | "Tasks" | "Progress" | "Monitoring">("Overview");
+  
   // Harvest quantity submission states
   const [actualHarvestQty, setActualHarvestQty] = useState("");
   const [savingHarvest, setSavingHarvest] = useState(false);
@@ -206,24 +217,181 @@ export default function FarmerDashboard() {
     }
   };
 
-  const handleCompleteContract = async (contractId: string) => {
-    const confirmComplete = confirm("Are you sure you want to complete this contract? This will release the land parcel back to AVAILABLE status.");
-    if (!confirmComplete) return;
+  const fetchLands = async () => {
+    setLoadingLands(true);
+    setErrorLands("");
     try {
-      const res = await fetch(`/api/contracts/${contractId}/complete`, {
-        method: "PATCH",
-      });
+      const res = await fetch("/api/lands");
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to complete contract.");
+        throw new Error(data.error || "Failed to fetch land parcels.");
       }
-      fetchIncomingContracts();
+      setLands(data);
     } catch (err: any) {
-      alert(err.message || "Could not complete contract.");
+      setErrorLands(err.message || "Error loading lands.");
+    } finally {
+      setLoadingLands(false);
     }
   };
 
-  const handlePostProgressSubmit = async (e: React.FormEvent) => {
+  const resetLandForm = () => {
+    setFormName("");
+    setFormSize("");
+    setFormUnit("ACRE");
+    setFormAddress("");
+    setFormVillage("");
+    setFormDistrict("");
+    setFormState("");
+    setFormPincode("");
+    setFormLat("");
+    setFormLng("");
+    setFormDesc("");
+    setFormError("");
+  };
+
+  const handleAddLandSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setFormSaving(true);
+    try {
+      const body = {
+        name: formName,
+        size: parseFloat(formSize),
+        unit: formUnit,
+        address: formAddress,
+        village: formVillage,
+        district: formDistrict,
+        state: formState,
+        pincode: formPincode || undefined,
+        latitude: parseFloat(formLat),
+        longitude: parseFloat(formLng),
+        description: formDesc || undefined,
+      };
+
+      const res = await fetch("/api/lands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create land parcel.");
+      }
+      setIsAdding(false);
+      resetLandForm();
+      fetchLands();
+    } catch (err: any) {
+      setFormError(err.message || "An error occurred.");
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const handleEditLandSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLand) return;
+    setFormError("");
+    setFormSaving(true);
+    try {
+      const body = {
+        name: formName,
+        size: parseFloat(formSize),
+        unit: formUnit,
+        address: formAddress,
+        village: formVillage,
+        district: formDistrict,
+        state: formState,
+        pincode: formPincode || undefined,
+        latitude: parseFloat(formLat),
+        longitude: parseFloat(formLng),
+        description: formDesc || undefined,
+      };
+
+      const res = await fetch(`/api/lands/${editingLand.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update land parcel.");
+      }
+      setEditingLand(null);
+      resetLandForm();
+      fetchLands();
+    } catch (err: any) {
+      setFormError(err.message || "An error occurred.");
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const handleDeleteLand = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this land parcel?")) return;
+    try {
+      const res = await fetch(`/api/lands/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete land parcel.");
+      }
+      fetchLands();
+    } catch (err: any) {
+      alert(err.message || "Could not delete land parcel.");
+    }
+  };
+
+  const startEditingLand = (land: Land) => {
+    setEditingLand(land);
+    setFormName(land.name);
+    setFormSize(land.size.toString());
+    setFormUnit(land.unit);
+    setFormAddress(land.address);
+    setFormVillage(land.village);
+    setFormDistrict(land.district);
+    setFormState(land.state);
+    setFormPincode(land.pincode || "");
+    setFormLat(land.latitude.toString());
+    setFormLng(land.longitude.toString());
+    setFormDesc(land.description || "");
+    setFormError("");
+  };
+
+  const fetchCategories = async () => {
+    setLoadingCrops(true);
+    try {
+      const res = await fetch("/api/crops/categories");
+      const data = await res.json();
+      if (res.ok) {
+        setCategories(data);
+        if (data.length > 0 && !selectedCategory) {
+          setSelectedCategory(data[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+    } finally {
+      setLoadingCrops(false);
+    }
+  };
+
+  const fetchCrops = async (category: CropCategory | string) => {
+    if (!category) return;
+    setLoadingCrops(true);
+    try {
+      const categoryQuery = typeof category === "string" ? category : (category.name || category.id);
+      const res = await fetch(`/api/crops?category=${encodeURIComponent(categoryQuery)}`);
+      const data = await res.json();
+      if (res.ok) {
+        setCrops(data);
+      }
+    } catch (err) {
+      console.error("Error fetching crops:", err);
+    } finally {
+      setLoadingCrops(false);
+    }
+  };
+
+  const handlePostProgressUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showProgressModalContract) return;
     setSubmittingProgress(true);
@@ -231,10 +399,7 @@ export default function FarmerDashboard() {
       const res = await fetch(`/api/contracts/${showProgressModalContract.id}/progress`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stage: progressStage,
-          notes: progressNotes,
-        }),
+        body: JSON.stringify({ stage: progressStage, notes: progressNotes }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -254,8 +419,6 @@ export default function FarmerDashboard() {
     }
   };
 
-
-
   const fetchContractDetails = async (contractId: string) => {
     setLoadingViewingContract(true);
     setViewingContractOverview(null);
@@ -271,45 +434,38 @@ export default function FarmerDashboard() {
       if (res.ok) {
         const data = await res.json();
         setViewingContract(data);
-        
-        let overviewData = null;
-        if (overviewRes.ok) {
-          overviewData = await overviewRes.json();
-          setViewingContractOverview(overviewData);
-          setActualHarvestQty(overviewData.yieldSummary?.actualQuantity !== null ? overviewData.yieldSummary.actualQuantity.toString() : "");
+      }
+      if (overviewRes.ok) {
+        const overviewData = await overviewRes.json();
+        setViewingContractOverview(overviewData);
+      }
+
+      try {
+        const milestonesRes = await fetch(`/api/contracts/${contractId}/milestones`);
+        if (milestonesRes.ok) {
+          const milestonesData = await milestonesRes.json();
+          setViewingContractMilestones(milestonesData);
         } else {
-          setActualHarvestQty("");
+          setMilestonesLoadError("Milestones data currently unavailable.");
         }
+      } catch (e) {
+        setMilestonesLoadError("Could not connect to milestones service.");
+      } finally {
+        setLoadingMilestones(false);
+      }
 
-        // Fetch milestones
-        try {
-          const mRes = await fetch(`/api/contracts/${contractId}/milestones`);
-          if (mRes.ok) {
-            setViewingContractMilestones(await mRes.json());
-          } else {
-            const err = await mRes.json();
-            setMilestonesLoadError(err.error || "Failed to load crop milestones.");
-          }
-        } catch (e: any) {
-          setMilestonesLoadError(e.message || "Failed to fetch milestones.");
-        } finally {
-          setLoadingMilestones(false);
+      try {
+        const tasksRes = await fetch(`/api/contracts/${contractId}/tasks`);
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setViewingContractTasks(tasksData);
+        } else {
+          setTasksLoadError("Tasks data currently unavailable.");
         }
-
-        // Fetch tasks
-        try {
-          const tRes = await fetch(`/api/contracts/${contractId}/tasks`);
-          if (tRes.ok) {
-            setViewingContractTasks(await tRes.json());
-          } else {
-            const err = await tRes.json();
-            setTasksLoadError(err.error || "Failed to load crop tasks.");
-          }
-        } catch (e: any) {
-          setTasksLoadError(e.message || "Failed to fetch tasks.");
-        } finally {
-          setLoadingTasks(false);
-        }
+      } catch (e) {
+        setTasksLoadError("Could not connect to tasks service.");
+      } finally {
+        setLoadingTasks(false);
       }
     } catch (err) {
       console.error("Error fetching contract details:", err);
@@ -331,31 +487,31 @@ export default function FarmerDashboard() {
       if (!res.ok) {
         throw new Error(data.error || "Failed to update task status.");
       }
-      await fetchContractDetails(viewingContract.id);
+      setViewingContractTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+      );
     } catch (err: any) {
-      alert(err.message || "An error occurred.");
+      alert(err.message || "Error updating task status.");
     } finally {
       setUpdatingTaskId(null);
     }
   };
 
-  const handleSaveHarvest = async (e: React.FormEvent) => {
+  const handleRecordHarvest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!viewingContract) return;
+    if (!viewingContract || !actualHarvestQty.trim()) return;
     setSavingHarvest(true);
     setHarvestError("");
     try {
-      const qty = parseFloat(actualHarvestQty);
-      if (isNaN(qty) || qty < 0) {
-        throw new Error("Harvest quantity must be a non-negative number.");
+      const qtyNum = parseFloat(actualHarvestQty);
+      if (isNaN(qtyNum) || qtyNum < 0) {
+        throw new Error("Please enter a valid positive harvest quantity.");
       }
-
       const res = await fetch(`/api/contracts/${viewingContract.id}/yield`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actualQuantity: qty }),
+        body: JSON.stringify({ actualQuantity: qtyNum }),
       });
-
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || "Failed to submit yield quantity.");
@@ -370,6 +526,78 @@ export default function FarmerDashboard() {
     }
   };
 
+  const handleCompleteContract = async (contractId: string) => {
+    if (!confirm("Are you sure you want to mark this contract as COMPLETED?")) return;
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/complete`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to complete contract.");
+      }
+      fetchIncomingContracts();
+      if (viewingContractId === contractId) {
+        fetchContractDetails(contractId);
+      }
+    } catch (err: any) {
+      alert(err.message || "Could not complete contract.");
+    }
+  };
+
+  const modalPushedRef = useRef(false);
+
+  const openContractModal = (contractId: string) => {
+    if (!contractId) return;
+    setViewingContractId(contractId);
+    if (!modalPushedRef.current && typeof window !== "undefined") {
+      try {
+        window.history.pushState({ farmerContractModal: true }, "", window.location.pathname);
+        modalPushedRef.current = true;
+      } catch (err) {
+        console.error("pushState error:", err);
+      }
+    }
+  };
+
+  const closeContractModal = () => {
+    setViewingContractId(null);
+    setViewingContract(null);
+    if (modalPushedRef.current && typeof window !== "undefined") {
+      modalPushedRef.current = false;
+      try {
+        window.history.replaceState(null, "", window.location.pathname);
+      } catch (err) {
+        console.error("replaceState error:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (modalPushedRef.current) {
+        modalPushedRef.current = false;
+        setViewingContractId(null);
+        setViewingContract(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    const handleResetView = () => {
+      setViewingContractId(null);
+      setViewingContract(null);
+      setActiveTab("contract-requests");
+    };
+
+    window.addEventListener("dashboard-reset-view", handleResetView);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("dashboard-reset-view", handleResetView);
+    };
+  }, []);
+
   useEffect(() => {
     if (viewingContractId) {
       setActiveDetailTab("Overview");
@@ -381,989 +609,395 @@ export default function FarmerDashboard() {
 
   // Fetch lands, categories and contracts
   useEffect(() => {
-    if (activeTab === "lands") {
-      fetchLands();
-    } else if (activeTab === "crops") {
-      fetchCategories();
-    } else if (activeTab === "contract-requests") {
-      fetchIncomingContracts();
+    fetchLands();
+    fetchIncomingContracts();
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCategory) {
+      fetchCrops(selectedCategory);
     }
-  }, [activeTab]);
+  }, [selectedCategory]);
 
-  const fetchLands = async () => {
-    setLoadingLands(true);
-    setErrorLands("");
-    try {
-      const res = await fetch("/api/lands");
-      if (!res.ok) throw new Error("Failed to load lands");
-      const data = await res.json();
-      setLands(data);
-    } catch (err: any) {
-      setErrorLands(err.message || "Could not retrieve land parcels.");
-    } finally {
-      setLoadingLands(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    setLoadingCrops(true);
-    try {
-      const res = await fetch("/api/crops/categories");
-      if (!res.ok) throw new Error("Failed to load crop categories");
-      const data = await res.json();
-      setCategories(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingCrops(false);
-    }
-  };
-
-  const fetchCropsByCategory = async (categoryName: string) => {
-    setLoadingCrops(true);
-    setSelectedCrop(null);
-    try {
-      const res = await fetch(`/api/crops?category=${encodeURIComponent(categoryName)}`);
-      if (!res.ok) throw new Error("Failed to load crops");
-      const data = await res.json();
-      setCrops(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingCrops(false);
-    }
-  };
-
-  // Reset form states
-  const resetForm = () => {
-    setFormName("");
-    setFormSize("");
-    setFormUnit("ACRE");
-    setFormAddress("");
-    setFormVillage("");
-    setFormDistrict("");
-    setFormState("");
-    setFormPincode("");
-    setFormLat("");
-    setFormLng("");
-    setFormDesc("");
-    setFormError("");
-  };
-
-  const handleOpenAdd = () => {
-    resetForm();
-    setIsAdding(true);
-    setEditingLand(null);
-  };
-
-  const handleOpenEdit = (land: Land) => {
-    setEditingLand(land);
-    setFormName(land.name);
-    setFormSize(land.size.toString());
-    setFormUnit(land.unit);
-    setFormAddress(land.address);
-    setFormVillage(land.village);
-    setFormDistrict(land.district);
-    setFormState(land.state);
-    setFormPincode(land.pincode || "");
-    setFormLat(land.latitude.toString());
-    setFormLng(land.longitude.toString());
-    setFormDesc(land.description || "");
-    setFormError("");
-    setIsAdding(true);
-  };
-
-  const handleSaveLand = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
-    setFormSaving(true);
-
-    const payload = {
-      name: formName,
-      size: formSize,
-      unit: formUnit,
-      address: formAddress,
-      village: formVillage,
-      district: formDistrict,
-      state: formState,
-      pincode: formPincode || null,
-      latitude: formLat,
-      longitude: formLng,
-      description: formDesc || null,
-    };
-
-    try {
-      const url = editingLand ? `/api/lands/${editingLand.id}` : "/api/lands";
-      const method = editingLand ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to save land information.");
-      }
-
-      setIsAdding(false);
-      setEditingLand(null);
-      resetForm();
-      fetchLands();
-    } catch (err: any) {
-      setFormError(err.message || "An error occurred while saving.");
-    } finally {
-      setFormSaving(false);
-    }
-  };
-
-  const handleToggleStatus = async (land: Land) => {
-    if (land.status === "UNDER_CONTRACT") return;
-
-    const newStatus = land.status === "AVAILABLE" ? "UNAVAILABLE" : "AVAILABLE";
-    
-    try {
-      const res = await fetch(`/api/lands/${land.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update status.");
-      }
-
-      // Update local state directly
-      setLands(lands.map(l => l.id === land.id ? { ...l, status: newStatus as any } : l));
-    } catch (err: any) {
-      alert(err.message || "Could not toggle availability.");
-    }
-  };
-
-  // Helper to extract metadata
-  const getCropMetadata = (crop: Crop) => {
-    if (!crop.metadataJson) return null;
-    try {
-      return JSON.parse(crop.metadataJson);
-    } catch {
-      return null;
-    }
-  };
+  // KPI Computations based strictly on existing state
+  const activeContractsList = incomingContracts.filter(
+    (c) => c.status === "ACTIVE" || c.status === "ACCEPTED"
+  );
+  const pendingProposalsList = incomingContracts.filter(
+    (c) => c.status === "PENDING_APPROVAL"
+  );
+  const activeContractsCount = activeContractsList.length;
+  const totalValuation = activeContractsList.reduce(
+    (acc, curr) => acc + (curr.proposedPrice || 0),
+    0
+  );
+  const totalLandArea = lands.reduce((acc, curr) => acc + (curr.size || 0), 0);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Tab Navigation header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brandy/30 pb-4">
+    <div className="min-h-screen w-full bg-[#F6F8F3] px-4 sm:px-6 lg:px-8 xl:px-10 py-8 text-[#17251B] font-sans">
+      
+      {/* Top Console Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Farmer / Landowner Dashboard</h1>
-          <p className="text-kombu/70 mt-2">
-            Manage your land parcels, browse contract crops, and track workers.
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 bg-[#ECFDF3] border border-[#22C55E]/30 rounded-xl text-[#166534]">
+              <Sprout className="w-6 h-6" />
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#17251B] tracking-tight">
+              Landowner & Cultivation Console
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-[#647067] mt-1">
+            Manage land parcels, review contract proposals, track crop progress, and record harvest evidence.
           </p>
         </div>
-        <div className="flex bg-brandy/10 p-1.5 rounded-xl border border-brandy/20 select-none">
+        
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setActiveTab("overview")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "overview"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
-            }`}
+            onClick={() => {
+              setIsAdding(true);
+              resetLandForm();
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
           >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab("lands")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "lands"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
-            }`}
-          >
-            My Lands
-          </button>
-          <button
-            onClick={() => setActiveTab("crops")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "crops"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
-            }`}
-          >
-            Browse Crops
-          </button>
-          <button
-            onClick={() => setActiveTab("contract-requests")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "contract-requests"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
-            }`}
-          >
-            Contract Requests
+            <Plus className="w-4 h-4" /> Add Land Parcel
           </button>
         </div>
       </div>
 
-      {/* 1. OVERVIEW TAB (Pre-existing design) */}
+      {/* Main Full-Width Navigation Tabs */}
+      <div className="border-b border-[#E2E8E3] mb-8 bg-white rounded-xl p-1 shadow-sm">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none">
+          {[
+            { id: "overview", label: "Overview Summary", icon: LayoutGridIcon },
+            { id: "contract-requests", label: `Contract Proposals (${incomingContracts.length})`, icon: FileText },
+            { id: "lands", label: `Registered Parcels (${lands.length})`, icon: MapPin },
+            { id: "crops", label: "Crop Catalog", icon: Sprout },
+          ].map((tabItem) => {
+            const isActive = activeTab === tabItem.id;
+            return (
+              <button
+                key={tabItem.id}
+                onClick={() => setActiveTab(tabItem.id as Tab)}
+                className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? "border-[#166534] text-[#166534] bg-[#ECFDF3]/50 rounded-t-lg"
+                    : "border-transparent text-[#647067] hover:text-[#17251B] hover:bg-[#F6F8F3] rounded-t-lg"
+                }`}
+              >
+                <span>{tabItem.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* OVERVIEW TAB CONTENT */}
       {activeTab === "overview" && (
         <div className="space-y-8 animate-in fade-in duration-300">
-          {/* Alerts Section */}
-          <div className="bg-copper/10 border border-copper/30 rounded-2xl p-6 relative overflow-hidden shadow-sm">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <Bell className="w-32 h-32 text-copper -mt-8 -mr-8" />
-            </div>
-            <div className="relative z-10 flex items-start gap-4">
-              <div className="bg-copper/20 p-3 rounded-full text-copper shrink-0">
-                <Bell className="w-6 h-6" />
+          
+          {/* 4-Card Responsive KPI Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI 1: Active Contracts */}
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[#647067]">
+                <span className="text-xs font-bold uppercase tracking-wider">Active Contracts</span>
+                <span className="p-2 bg-[#ECFDF3] text-[#166534] rounded-xl border border-[#22C55E]/30">
+                  <ShieldCheck className="w-5 h-5" />
+                </span>
               </div>
-              <div>
-                <div className="inline-block px-2 py-1 bg-copper/20 text-copper text-xs font-bold rounded-md uppercase tracking-wide mb-2">
-                  Job Alert
-                </div>
-                <h3 className="text-xl font-bold text-pine flex items-center gap-2 mb-1">
-                  Field Vacancies Detected
-                </h3>
-                <p className="text-kombu/80">
-                  There is a shortage of labor for <strong>Soil Preparation & Tilling</strong> in <strong>Block B, Field 102</strong>. You need at least 2 more workers to meet the upcoming milestone deadline.
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold text-[#17251B]">{activeContractsCount}</div>
+                <p className="text-xs text-[#647067] mt-1 font-semibold">
+                  {incomingContracts.length} total proposals in records
                 </p>
-                <div className="mt-5 flex items-center gap-3">
-                  <button className="px-5 py-2.5 bg-copper text-white text-sm font-bold rounded-xl hover:bg-copper/90 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
-                    Broadcast Vacancy to Workers
-                  </button>
-                  <button className="px-5 py-2.5 bg-white border border-brandy/50 text-pine text-sm font-bold rounded-xl hover:bg-brandy/20 transition-all">
-                    Dismiss
-                  </button>
+              </div>
+            </div>
+
+            {/* KPI 2: Contract Valuation */}
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[#647067]">
+                <span className="text-xs font-bold uppercase tracking-wider">Total Contracted Price</span>
+                <span className="p-2 bg-[#ECFDF3] text-[#166534] rounded-xl border border-[#22C55E]/30">
+                  <DollarSign className="w-5 h-5" />
+                </span>
+              </div>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold text-[#166534]">
+                  ₹{totalValuation.toLocaleString("en-IN")}
                 </div>
+                <p className="text-xs text-[#647067] mt-1 font-semibold">Valuation of active crop agreements</p>
+              </div>
+            </div>
+
+            {/* KPI 3: Total Land Registered */}
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[#647067]">
+                <span className="text-xs font-bold uppercase tracking-wider">Registered Acreage</span>
+                <span className="p-2 bg-[#ECFDF3] text-[#166534] rounded-xl border border-[#22C55E]/30">
+                  <MapPin className="w-5 h-5" />
+                </span>
+              </div>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold text-[#17251B]">
+                  {totalLandArea.toFixed(1)} <span className="text-lg font-bold text-[#647067]">Acres</span>
+                </div>
+                <p className="text-xs text-[#647067] mt-1 font-semibold">{lands.length} verified land parcels</p>
+              </div>
+            </div>
+
+            {/* KPI 4: Pending Proposals */}
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[#647067]">
+                <span className="text-xs font-bold uppercase tracking-wider">Pending Proposals</span>
+                <span className="p-2 bg-[#FEF3C7] text-[#F59E0B] rounded-xl border border-[#F59E0B]/30">
+                  <Clock className="w-5 h-5" />
+                </span>
+              </div>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold text-[#F59E0B]">
+                  {pendingProposalsList.length}
+                </div>
+                <p className="text-xs text-[#647067] mt-1 font-semibold">Awaiting acceptance/rejection decision</p>
               </div>
             </div>
           </div>
 
-          {/* Analytics & Status Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-pine">Crop Health</h3>
-                <Activity className="w-5 h-5 text-dingley" />
-              </div>
-              <p className="text-3xl font-bold text-dingley">89%</p>
-              <p className="text-sm text-kombu/70 mt-1">Excellent condition</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-pine">Market Status</h3>
-                <Activity className="w-5 h-5 text-kombu" />
-              </div>
-              <p className="text-3xl font-bold text-kombu">High</p>
-              <p className="text-sm text-kombu/70 mt-1">Demand is peaking</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-pine">Soil Moisture</h3>
-                <Droplets className="w-5 h-5 text-dingley" />
-              </div>
-              <p className="text-3xl font-bold text-pine">42%</p>
-              <p className="text-sm text-kombu/70 mt-1">Optimal range</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-pine">Weather Risk</h3>
-                <Thermometer className="w-5 h-5 text-copper" />
-              </div>
-              <p className="text-3xl font-bold text-copper">Low</p>
-              <p className="text-sm text-kombu/70 mt-1">Clear skies expected</p>
-            </div>
-          </div>
-
-          {/* Workers Section */}
-          <div>
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Users className="w-6 h-6 text-dingley" /> Active Workers
-            </h2>
-            <div className="overflow-x-auto bg-white rounded-2xl border border-brandy/40 shadow-sm">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-brandy/40 bg-brandy/10">
-                    <th className="p-4 font-semibold text-kombu/80">Worker Name</th>
-                    <th className="p-4 font-semibold text-kombu/80">Current Task</th>
-                    <th className="p-4 font-semibold text-kombu/80">Working Time</th>
-                    <th className="p-4 font-semibold text-kombu/80">Field Done</th>
-                    <th className="p-4 font-semibold text-kombu/80">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workers.map((worker) => (
-                    <tr key={worker.id} className="border-b border-brandy/20 last:border-0 hover:bg-brandy/10 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <UserCircle2 className="w-8 h-8 text-kombu/40" />
-                          <span className="font-medium">{worker.name}</span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-kombu/90">{worker.task}</td>
-                      <td className="p-4 font-mono text-sm">{worker.timeLogged}</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-full bg-brandy/30 rounded-full h-2 max-w-[100px]">
-                            <div
-                              className="bg-dingley h-2 rounded-full"
-                              style={{ width: worker.fieldDone }}
-                            ></div>
-                          </div>
-                          <span className="text-xs font-medium">{worker.fieldDone}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          worker.status === "In Field" ? "bg-dingley/20 text-dingley" :
-                          worker.status === "Break" ? "bg-copper/20 text-copper" :
-                          "bg-kombu/20 text-kombu"
-                        }`}>
-                          {worker.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. MY LANDS TAB */}
-      {activeTab === "lands" && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          {!isAdding ? (
-            <>
-              {/* Lands List Control Bar */}
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold flex items-center gap-2 text-pine">
-                  Registered Farmland Parcels ({lands.length})
-                </h2>
-                <button
-                  onClick={handleOpenAdd}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-pine hover:bg-kombu text-brandy text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" /> Add Land Parcel
-                </button>
-              </div>
-
-              {loadingLands ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-brandy/30">
-                  <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-                  <p className="text-sm text-kombu/70 mt-4">Retrieving land parcels...</p>
-                </div>
-              ) : errorLands ? (
-                <div className="p-6 bg-copper/10 border border-copper/30 text-copper rounded-2xl text-center">
-                  <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                  <p className="font-semibold">{errorLands}</p>
-                  <button onClick={fetchLands} className="mt-4 px-4 py-2 bg-copper text-white rounded-xl text-sm font-bold">
-                    Retry
-                  </button>
-                </div>
-              ) : lands.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border border-brandy/30 shadow-sm max-w-xl mx-auto mt-8">
-                  <div className="w-16 h-16 bg-brandy/20 rounded-full flex items-center justify-center text-dingley mb-4">
-                    <Compass className="w-8 h-8" />
+          {/* 2-Column Responsive Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Left Column (7 cols): Active Contracts & Proposal Directory */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#E2E8E3] pb-4 mb-6">
+                  <div>
+                    <h3 className="font-extrabold text-lg text-[#17251B]">Recent Contract Proposals</h3>
+                    <p className="text-xs text-[#647067]">Proposals submitted by buyers for your land parcels</p>
                   </div>
-                  <h3 className="text-xl font-bold text-pine mb-2">No Farmland Registered</h3>
-                  <p className="text-kombu/70 text-sm mb-6 max-w-sm">
-                    Register your agricultural plots, boundaries, and availability to receive matching contract offers from buyers.
-                  </p>
                   <button
-                    onClick={handleOpenAdd}
-                    className="px-6 py-3 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
+                    onClick={() => setActiveTab("contract-requests")}
+                    className="text-xs font-bold text-[#166534] hover:underline flex items-center gap-1"
                   >
-                    Register Your First Plot
+                    View All ({incomingContracts.length}) <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {lands.map((land) => (
+
+                {loadingIncoming ? (
+                  <div className="py-12 text-center text-[#647067]">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#166534] mx-auto mb-2" />
+                    <p className="text-xs">Loading proposals...</p>
+                  </div>
+                ) : incomingContracts.length === 0 ? (
+                  <div className="py-12 text-center border border-dashed border-[#E2E8E3] rounded-2xl p-6">
+                    <FileText className="w-10 h-10 text-[#166534] mx-auto mb-2 opacity-50" />
+                    <p className="text-sm font-bold text-[#17251B]">No proposals found</p>
+                    <p className="text-xs text-[#647067] mt-1">Make sure your land parcels are registered as Available.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {incomingContracts.slice(0, 3).map((contract) => (
+                      <div
+                        key={contract.id}
+                        className="bg-[#F6F8F3] p-5 rounded-2xl border border-[#E2E8E3] hover:border-[#22C55E]/40 transition-all"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8E3] pb-3">
+                          <div>
+                            <span className="text-[10px] font-bold tracking-wider uppercase bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 px-2 py-0.5 rounded">
+                              {contract.crop?.name || "Crop"} Proposal
+                            </span>
+                            <h4 className="font-bold text-base text-[#17251B] mt-1">
+                              Contract #{contract.id.substring(0, 8).toUpperCase()}
+                            </h4>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
+                            contract.status === "ACTIVE" ? "bg-[#166534] text-white" :
+                            contract.status === "ACCEPTED" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                            contract.status === "PENDING_APPROVAL" ? "bg-[#FEF3C7] text-[#F59E0B] border border-[#F59E0B]/30" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>
+                            {contract.status.replace("_", " ")}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 my-3 text-xs">
+                          <div>
+                            <span className="text-[#647067] block uppercase font-bold text-[10px]">Buyer Name</span>
+                            <span className="font-bold text-[#17251B]">{contract.buyer?.name || "Registered Buyer"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[#647067] block uppercase font-bold text-[10px]">Land Parcel</span>
+                            <span className="font-bold text-[#17251B]">{contract.land?.name || "Plot"} ({contract.landArea} Acres)</span>
+                          </div>
+                          <div>
+                            <span className="text-[#647067] block uppercase font-bold text-[10px]">Proposed Price</span>
+                            <span className="font-bold text-[#166534]">₹{contract.proposedPrice.toLocaleString("en-IN")}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8E3]">
+                          {contract.status === "PENDING_APPROVAL" && (
+                            <>
+                              <button
+                                onClick={() => handleRejectContract(contract.id)}
+                                className="px-3 py-1.5 border border-[#DC2626] text-[#DC2626] hover:bg-[#FEE2E2] font-bold rounded-xl text-xs transition-all cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                onClick={() => setShowAcceptConfirmId(contract.id)}
+                                className="px-3.5 py-1.5 bg-[#166534] text-white hover:bg-[#14532d] font-bold rounded-xl text-xs transition-all cursor-pointer"
+                              >
+                                Accept Proposal
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => openContractModal(contract.id)}
+                            className="px-3.5 py-1.5 bg-white border border-[#E2E8E3] text-[#166534] hover:bg-[#ECFDF3] font-bold rounded-xl text-xs transition-all cursor-pointer"
+                          >
+                            View Contract
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column (5 cols): Registered Land Parcels & Workers */}
+            <div className="lg:col-span-5 space-y-6">
+              
+              {/* Land Parcels Summary */}
+              <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#E2E8E3] pb-4 mb-4">
+                  <h3 className="font-extrabold text-base text-[#17251B]">Your Land Parcels</h3>
+                  <button
+                    onClick={() => setActiveTab("lands")}
+                    className="text-xs font-bold text-[#166534] hover:underline"
+                  >
+                    Manage ({lands.length})
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {lands.slice(0, 3).map((land) => (
                     <div
                       key={land.id}
-                      className="bg-white rounded-2xl border border-brandy/40 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+                      className="p-4 bg-[#F6F8F3] rounded-xl border border-[#E2E8E3] flex items-center justify-between"
                     >
-                      {/* Farmland Header Card Decor */}
-                      <div className="bg-gradient-to-r from-dingley/20 to-brandy/10 p-5 border-b border-brandy/20 flex justify-between items-start">
-                        <div>
-                          <h3 className="font-bold text-lg text-pine">{land.name}</h3>
-                          <p className="text-xs text-kombu/70 mt-1 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-copper" /> {land.village}, {land.district}, {land.state}
-                          </p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                          land.status === "AVAILABLE" ? "bg-dingley/20 text-dingley" :
-                          land.status === "UNDER_CONTRACT" ? "bg-kombu/25 text-kombu" :
-                          "bg-brandy/40 text-kombu/60"
+                      <div>
+                        <h4 className="font-bold text-sm text-[#17251B]">{land.name}</h4>
+                        <p className="text-xs text-[#647067] flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#166534]" /> {land.village}, {land.district}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-extrabold text-sm text-[#166534]">{land.size} {land.unit}s</span>
+                        <span className={`block text-[10px] font-bold uppercase mt-0.5 ${
+                          land.status === "UNDER_CONTRACT" ? "text-[#166534]" : "text-[#F59E0B]"
                         }`}>
                           {land.status.replace("_", " ")}
                         </span>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                      <div className="p-5 space-y-4 flex-1">
-                        {land.description && (
-                          <p className="text-sm text-kombu/80 leading-relaxed italic border-l-2 border-brandy/60 pl-3">
-                            "{land.description}"
-                          </p>
-                        )}
-                        <div className="grid grid-cols-2 gap-4 text-sm bg-brandy/5 p-4 rounded-xl border border-brandy/20">
-                          <div>
-                            <span className="text-xs text-kombu/60 uppercase font-semibold">Total Area</span>
-                            <p className="font-bold text-pine text-base mt-0.5">{land.size} {land.unit}s</p>
-                          </div>
-                          <div>
-                            <span className="text-xs text-kombu/60 uppercase font-semibold">Coordinates</span>
-                            <p className="font-mono text-xs text-pine font-medium mt-1">
-                              {land.latitude.toFixed(5)}, {land.longitude.toFixed(5)}
-                            </p>
-                          </div>
-                        </div>
+              {/* Field Workers Activity Log */}
+              <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#E2E8E3] pb-4 mb-4">
+                  <h3 className="font-extrabold text-base text-[#17251B] flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#166534]" /> Workforce Activity
+                  </h3>
+                  <span className="text-xs text-[#647067] font-semibold">{workers.length} active today</span>
+                </div>
+
+                <div className="space-y-3">
+                  {workers.map((worker) => (
+                    <div key={worker.id} className="p-3 bg-[#F6F8F3] rounded-xl border border-[#E2E8E3]">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-[#17251B]">{worker.name}</span>
+                        <span className="text-[10px] font-bold bg-[#ECFDF3] text-[#166534] px-2 py-0.5 rounded uppercase">
+                          {worker.status}
+                        </span>
                       </div>
-
-                      <div className="bg-brandy/10 px-5 py-4 border-t border-brandy/25 flex items-center justify-between">
-                        {/* Toggle Availability */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleToggleStatus(land)}
-                            disabled={land.status === "UNDER_CONTRACT"}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                              land.status === "UNDER_CONTRACT"
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-                                : land.status === "AVAILABLE"
-                                ? "bg-white border border-copper/30 text-copper hover:bg-copper/5 cursor-pointer"
-                                : "bg-dingley text-white hover:bg-dingley/90 cursor-pointer"
-                            }`}
-                          >
-                            {land.status === "AVAILABLE" ? (
-                              <>
-                                <XCircle className="w-3.5 h-3.5" /> Mark Unavailable
-                              </>
-                            ) : land.status === "UNAVAILABLE" ? (
-                              <>
-                                <CheckCircle className="w-3.5 h-3.5" /> Mark Available
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="w-3.5 h-3.5" /> Bound in Contract
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        {/* Edit details link */}
-                        <button
-                          onClick={() => handleOpenEdit(land)}
-                          disabled={land.status === "UNDER_CONTRACT"}
-                          className={`flex items-center gap-1 text-xs font-bold text-pine hover:text-dingley transition-colors ${
-                            land.status === "UNDER_CONTRACT" ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
-                          }`}
-                        >
-                          <Edit2 className="w-3.5 h-3.5" /> Edit Details
-                        </button>
+                      <p className="text-xs text-[#647067]">{worker.task}</p>
+                      <div className="flex items-center justify-between text-[10px] text-[#647067] mt-2 font-semibold">
+                        <span>Logged: {worker.timeLogged}</span>
+                        <span>Field Done: {worker.fieldDone}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </>
-          ) : (
-            /* Add or Edit Land form layout */
-            <div className="bg-white rounded-3xl border border-brandy/30 shadow-sm p-6 sm:p-8 max-w-3xl mx-auto">
-              <div className="flex items-center gap-3 border-b border-brandy/20 pb-4 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setIsAdding(false)}
-                  className="p-1.5 rounded-lg hover:bg-brandy/20 transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5 text-kombu" />
-                </button>
-                <h2 className="text-xl font-bold text-pine">
-                  {editingLand ? `Edit Land Details: ${editingLand.name}` : "Register New Farmland Plot"}
-                </h2>
               </div>
 
-              {formError && (
-                <div className="mb-6 p-3.5 bg-copper/10 border border-copper/30 text-copper rounded-xl text-sm font-semibold flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSaveLand} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Name field */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Plot Name / Identifier</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. North Field Sector A"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                    />
-                  </div>
-                  {/* Size and Unit */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-semibold text-pine mb-2">Plot Size</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required
-                        placeholder="e.g. 4.5"
-                        value={formSize}
-                        onChange={(e) => setFormSize(e.target.value)}
-                        className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-pine mb-2">Unit</label>
-                      <select
-                        value={formUnit}
-                        onChange={(e) => setFormUnit(e.target.value as any)}
-                        className="w-full px-3 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                      >
-                        <option value="ACRE">Acres</option>
-                        <option value="HECTARE">Hectares</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Coordinates Latitude */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Latitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      required
-                      placeholder="e.g. 31.028540"
-                      value={formLat}
-                      onChange={(e) => setFormLat(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium font-mono"
-                    />
-                  </div>
-                  {/* Coordinates Longitude */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Longitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      required
-                      placeholder="e.g. 75.394850"
-                      value={formLng}
-                      onChange={(e) => setFormLng(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Address */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Local Boundary Address</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. G.T Road Near Market"
-                      value={formAddress}
-                      onChange={(e) => setFormAddress(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                    />
-                  </div>
-                  {/* Village */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Village / Sub-district</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Phillaur"
-                      value={formVillage}
-                      onChange={(e) => setFormVillage(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  {/* District */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">District</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Jalandhar"
-                      value={formDistrict}
-                      onChange={(e) => setFormDistrict(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                    />
-                  </div>
-                  {/* State */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">State</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Punjab"
-                      value={formState}
-                      onChange={(e) => setFormState(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                    />
-                  </div>
-                  {/* Pincode */}
-                  <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Pincode</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 144410"
-                      value={formPincode}
-                      onChange={(e) => setFormPincode(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                    />
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-semibold text-pine mb-2">Optional Notes / Details</label>
-                  <textarea
-                    placeholder="e.g. Fertile clay loam soil, active tubewell connection on-site."
-                    value={formDesc}
-                    onChange={(e) => setFormDesc(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-3 border-t border-brandy/20 pt-6">
-                  <button
-                    type="button"
-                    onClick={() => setIsAdding(false)}
-                    className="px-6 py-3 border border-brandy text-pine text-sm font-bold rounded-xl hover:bg-brandy/10 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={formSaving}
-                    className="flex items-center gap-2 px-6 py-3 bg-pine hover:bg-kombu text-brandy text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-                  >
-                    {formSaving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-                      </>
-                    ) : (
-                      "Save Land Parcel"
-                    )}
-                  </button>
-                </div>
-              </form>
             </div>
-          )}
+
+          </div>
+
         </div>
       )}
 
-      {/* 3. BROWSE CROPS TAB */}
-      {activeTab === "crops" && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          {!selectedCategory ? (
-            /* Choose Category Menu */
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold text-pine text-center sm:text-left">
-                Select a Crop Category to Browse Master Requirements
-              </h2>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Crops Card */}
-                <button
-                  onClick={() => {
-                    const cat = categories.find(c => c.name === "Crops") || { id: "crops", name: "Crops", description: "" };
-                    setSelectedCategory(cat);
-                    fetchCropsByCategory("Crops");
-                  }}
-                  className="group relative flex flex-col justify-end h-64 rounded-3xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
-                >
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                    style={{ backgroundImage: "url('/images/categories/crops.jpg')" }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Crops</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed line-clamp-2">
-                      Browse wheat, paddy, maize, and sugar crop specifications.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Vegetables Card */}
-                <button
-                  onClick={() => {
-                    const cat = categories.find(c => c.name === "Vegetables") || { id: "vegetables", name: "Vegetables", description: "" };
-                    setSelectedCategory(cat);
-                    fetchCropsByCategory("Vegetables");
-                  }}
-                  className="group relative flex flex-col justify-end h-64 rounded-3xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
-                >
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                    style={{ backgroundImage: "url('/images/categories/vegetables.jpg')" }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Vegetables</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed line-clamp-2">
-                      Check parameters for potato, tomato, onion, and greens.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Fruits Card */}
-                <button
-                  onClick={() => {
-                    const cat = categories.find(c => c.name === "Fruits") || { id: "fruits", name: "Fruits", description: "" };
-                    setSelectedCategory(cat);
-                    fetchCropsByCategory("Fruits");
-                  }}
-                  className="group relative flex flex-col justify-end h-64 rounded-3xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
-                >
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                    style={{ backgroundImage: "url('/images/categories/fruits.jpg')" }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Fruits</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed line-clamp-2">
-                      Review requirements for tropical and temperate orchard fruits.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Flowers Card */}
-                <button
-                  onClick={() => {
-                    const cat = categories.find(c => c.name === "Flowers") || { id: "flowers", name: "Flowers", description: "" };
-                    setSelectedCategory(cat);
-                    fetchCropsByCategory("Flowers");
-                  }}
-                  className="group relative flex flex-col justify-end h-64 rounded-3xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
-                >
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                    style={{ backgroundImage: "url('/images/categories/flowers.jpg')" }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Flowers</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed line-clamp-2">
-                      Browse floriculture profiles, rose varieties, and seed crops.
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Selected Category: Crop List & Details Split View */
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b border-brandy/20 pb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setCrops([]);
-                    setSelectedCrop(null);
-                  }}
-                  className="p-1.5 rounded-lg hover:bg-brandy/20 transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5 text-kombu" />
-                </button>
-                <div>
-                  <h2 className="text-xl font-bold text-pine">{selectedCategory.name} Category</h2>
-                  <p className="text-xs text-kombu/70 mt-0.5">{selectedCategory.description || "Master crop directories."}</p>
-                </div>
-              </div>
-
-              {loadingCrops ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-brandy/30">
-                  <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-                  <p className="text-sm text-kombu/70 mt-4">Loading crops...</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* Left Column: Crop List */}
-                  <div className="md:col-span-1 space-y-3">
-                    <h3 className="text-sm font-bold text-kombu/60 uppercase tracking-wider mb-2">Available Crop Types</h3>
-                    {crops.map((crop) => (
-                      <button
-                        key={crop.id}
-                        onClick={() => setSelectedCrop(crop)}
-                        className={`w-full text-left p-4 rounded-xl border transition-all flex justify-between items-center cursor-pointer ${
-                          selectedCrop?.id === crop.id
-                            ? "bg-pine text-brandy border-pine shadow-sm font-bold"
-                            : "bg-white border-brandy/30 text-pine hover:bg-brandy/10 hover:border-brandy"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Sprout className="w-4 h-4 shrink-0" />
-                          <span>{crop.name}</span>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded font-mono ${
-                          selectedCrop?.id === crop.id ? "bg-white/10 text-white" : "bg-brandy/20 text-kombu"
-                        }`}>
-                          {crop.durationDays} Days
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Right Column: Crop Detail Card */}
-                  <div className="md:col-span-2">
-                    {selectedCrop ? (
-                      <div className="bg-white p-6 rounded-3xl border border-brandy/30 shadow-sm space-y-6 animate-in fade-in duration-300">
-                        <div>
-                          <div className="inline-block px-2.5 py-1 bg-dingley/20 text-dingley text-xs font-bold rounded-md uppercase tracking-wider mb-2">
-                            Master Spec Sheet
-                          </div>
-                          <h3 className="text-2xl font-bold text-pine">{selectedCrop.name} Details</h3>
-                          {selectedCrop.description && (
-                            <p className="text-kombu/80 text-sm mt-3 leading-relaxed">
-                              {selectedCrop.description}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {/* Duration Card */}
-                          <div className="bg-brandy/5 border border-brandy/20 p-4 rounded-xl flex items-center gap-3">
-                            <Calendar className="w-10 h-10 text-dingley shrink-0" />
-                            <div>
-                              <span className="text-xs text-kombu/60 uppercase font-semibold">Cultivation Cycle</span>
-                              <p className="font-bold text-pine mt-0.5">{selectedCrop.durationDays} Days</p>
-                            </div>
-                          </div>
-
-                          {/* Category Reference */}
-                          <div className="bg-brandy/5 border border-brandy/20 p-4 rounded-xl flex items-center gap-3">
-                            <Layers className="w-10 h-10 text-copper shrink-0" />
-                            <div>
-                              <span className="text-xs text-kombu/60 uppercase font-semibold">Group Category</span>
-                              <p className="font-bold text-pine mt-0.5">{selectedCategory.name}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Metadata Details (Pricing, Yield, Workers) */}
-                        {getCropMetadata(selectedCrop) && (
-                          <div className="border-t border-brandy/25 pt-6 space-y-4">
-                            <h4 className="text-sm font-bold text-kombu/60 uppercase tracking-wider">Estimated Parameters (per Acre)</h4>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              <div className="border border-brandy/35 p-4 rounded-xl text-center">
-                                <span className="text-xs text-kombu/60 uppercase block">Expected Yield</span>
-                                <p className="text-lg font-bold text-pine mt-1">
-                                  {getCropMetadata(selectedCrop).expectedYieldPerAcre} Tonnes
-                                </p>
-                              </div>
-                              
-                              <div className="border border-brandy/35 p-4 rounded-xl text-center font-bold">
-                                <span className="text-xs text-kombu/60 uppercase block">Base Price / Tonne</span>
-                                <p className="text-lg font-bold text-copper mt-1 flex items-center justify-center">
-                                  <DollarSign className="w-4 h-4 -mr-0.5" />
-                                  {getCropMetadata(selectedCrop).basePricePerTonne.toLocaleString("en-IN")}
-                                </p>
-                              </div>
-
-                              <div className="border border-brandy/35 p-4 rounded-xl text-center">
-                                <span className="text-xs text-kombu/60 uppercase block">Peak Labor Factor</span>
-                                <p className="text-lg font-bold text-pine mt-1">
-                                  {getCropMetadata(selectedCrop).laborFactor} workers
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="p-4 bg-brandy/10 border border-brandy/30 rounded-xl text-xs text-kombu/70 leading-relaxed">
-                              <strong>Note on Master Data:</strong> These fields are used by the platform to automatically calculate required land coordinates, crop timeline milestones, and workforce thresholds during contract proposal phases.
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="h-full min-h-[300px] border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-8 bg-brandy/5 text-kombu/60">
-                        <Sprout className="w-12 h-12 mb-3 text-brandy" />
-                        <h4 className="font-bold text-pine text-lg mb-1">Select a Crop</h4>
-                        <p className="text-xs max-w-xs">Click one of the crops in the sidebar list to inspect growing details and metadata parameters.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 4. CONTRACT REQUESTS TAB */}
+      {/* CONTRACT PROPOSALS TAB CONTENT */}
       {activeTab === "contract-requests" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-pine">
-              Incoming Contract Proposals ({incomingContracts.length})
-            </h2>
+          <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-[#17251B]">Contract Proposals & Agreements</h2>
+              <p className="text-xs text-[#647067] mt-1">Review incoming buyer proposals, accept terms, track progress, or submit harvest logs.</p>
+            </div>
+            <button
+              onClick={fetchIncomingContracts}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#F6F8F3] hover:bg-[#ECFDF3] border border-[#E2E8E3] text-[#166534] font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0"
+            >
+              <RefreshCw className="w-4 h-4" /> Refresh Proposals
+            </button>
           </div>
 
           {loadingIncoming ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-brandy/30">
-              <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-              <p className="text-sm text-kombu/70 mt-4">Retrieving contract requests...</p>
+            <div className="py-20 text-center text-[#647067]">
+              <Loader2 className="w-8 h-8 animate-spin text-[#166534] mx-auto mb-3" />
+              <p className="text-sm font-semibold">Fetching contract agreements...</p>
             </div>
           ) : incomingContracts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border border-brandy/30 shadow-sm max-w-xl mx-auto mt-8">
-              <div className="w-16 h-16 bg-brandy/20 rounded-full flex items-center justify-center text-dingley mb-4">
-                <Layers className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-pine mb-2">No Contract Requests</h3>
-              <p className="text-kombu/70 text-sm max-w-sm">
-                When buyers select your available land parcels and propose cultivation cycles, they will appear here for review.
-              </p>
+            <div className="bg-white p-12 rounded-2xl border border-dashed border-[#E2E8E3] text-center max-w-xl mx-auto my-8">
+              <Compass className="w-12 h-12 mb-3 text-[#166534] mx-auto" />
+              <h4 className="font-bold text-[#17251B] text-lg mb-1">No Contract Proposals</h4>
+              <p className="text-xs text-[#647067]">Ensure your land parcels are registered as available so buyers can send contract proposals.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6">
               {incomingContracts.map((contract) => (
                 <div
                   key={contract.id}
-                  className="bg-white rounded-2xl border border-brandy/40 shadow-sm overflow-hidden"
+                  className="bg-white rounded-2xl border border-[#E2E8E3] shadow-sm overflow-hidden"
                 >
-                  <div className="bg-brandy/10 p-5 border-b border-brandy/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="bg-[#F6F8F3] p-5 border-b border-[#E2E8E3] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
-                        {contract.crop?.name || "Crop"} Cultivation
+                      <span className="text-[10px] font-bold tracking-wider uppercase bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 px-2.5 py-0.5 rounded">
+                        {contract.crop?.name || "Crop"} Proposal
                       </span>
-                      <h3 className="font-bold text-lg text-pine mt-1.5 flex items-center gap-2">
-                        Contract Proposal #{contract.id.substring(0, 8).toUpperCase()}
-                        <span className="text-[10px] bg-brandy/20 text-pine px-2 py-0.5 rounded font-semibold">
+                      <h3 className="font-extrabold text-lg text-[#17251B] mt-1.5 flex items-center gap-2">
+                        Contract #{contract.id.substring(0, 8).toUpperCase()}
+                        <span className="text-[10px] bg-white border border-[#E2E8E3] text-[#17251B] px-2 py-0.5 rounded font-semibold">
                           v{contract.revision || 1}
                         </span>
                       </h3>
-                      <p className="text-xs text-kombu/60 mt-0.5">
-                        Proposed by buyer: <strong>{contract.buyer?.name || "N/A"}</strong> ({contract.buyer?.phone || "N/A"})
+                      <p className="text-xs text-[#647067] mt-0.5">
+                        Proposed by Buyer: <strong>{contract.buyer?.name || "Registered Buyer"}</strong> ({contract.buyer?.phone || "N/A"})
                       </p>
                     </div>
-                    <div>
+
+                    <div className="flex items-center gap-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
-                        contract.status === "PENDING_APPROVAL" ? "bg-copper/20 text-copper" :
-                        contract.status === "ACCEPTED" ? "bg-dingley/20 text-dingley" :
-                        contract.status === "ACTIVE" ? "bg-pine text-white" :
-                        contract.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                        "bg-gray-150 text-gray-500"
+                        contract.status === "PENDING_APPROVAL" ? "bg-[#FEF3C7] text-[#F59E0B] border border-[#F59E0B]/30" :
+                        contract.status === "ACCEPTED" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                        contract.status === "ACTIVE" ? "bg-[#166534] text-white" :
+                        contract.status === "REJECTED" ? "bg-[#FEE2E2] text-[#DC2626] border border-[#DC2626]/30" :
+                        "bg-gray-100 text-gray-600"
                       }`}>
                         {contract.status.replace("_", " ")}
                       </span>
@@ -1372,83 +1006,77 @@ export default function FarmerDashboard() {
 
                   <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Target Land Parcel</span>
-                      <p className="font-bold text-pine text-sm">{contract.land?.name || "Plot Location"}</p>
-                      <p className="text-kombu/70 mt-0.5">{contract.land?.village}, {contract.land?.district}, {contract.land?.state}</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Land Allocated</span>
+                      <p className="font-bold text-[#17251B] text-sm">{contract.land?.name || "Plot Location"}</p>
+                      <p className="text-[#647067] mt-0.5">{contract.landArea} Acres allocated ({contract.land?.village}, {contract.land?.district})</p>
                     </div>
 
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Area & Requested Yield</span>
-                      <p className="font-bold text-pine text-sm">{contract.landArea} Acres</p>
-                      <p className="text-kombu/70 mt-0.5">Allocated Qty: {contract.allocatedQuantity.toFixed(1)} Tonnes</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Target Yield</span>
+                      <p className="font-bold text-[#17251B] text-sm">{contract.allocatedQuantity?.toFixed(1)} Tonnes</p>
+                      <p className="text-[#647067] mt-0.5">Agreed delivery volume</p>
                     </div>
 
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Proposed Price</span>
-                      <p className="font-bold text-copper text-sm">₹{contract.proposedPrice.toLocaleString("en-IN")}</p>
-                      <p className="text-kombu/70 mt-0.5">Offered payout amount</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Proposed Price</span>
+                      <p className="font-bold text-[#166534] text-sm">₹{contract.proposedPrice?.toLocaleString("en-IN")}</p>
+                      <p className="text-[#647067] mt-0.5">Agreed valuation payout</p>
                     </div>
 
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Timeline Schedule</span>
-                      <p className="font-bold text-pine text-sm">Start: {new Date(contract.startDate).toLocaleDateString()}</p>
-                      <p className="text-kombu/70 mt-0.5">Harvest: {new Date(contract.expectedHarvestDate).toLocaleDateString()}</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Timeline</span>
+                      <p className="font-bold text-[#17251B] text-sm">Start: {new Date(contract.startDate).toLocaleDateString()}</p>
+                      <p className="text-[#647067] mt-0.5">Harvest: {new Date(contract.expectedHarvestDate).toLocaleDateString()}</p>
                     </div>
                   </div>
 
                   {contract.notes && (
                     <div className="px-5 pb-5">
-                      <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
-                        <strong>Buyer Proposal Notes:</strong> "{contract.notes}"
+                      <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-3.5 rounded-xl text-xs text-[#17251B]">
+                        <strong>Proposal Note:</strong> "{contract.notes}"
                       </div>
                     </div>
                   )}
 
                   {contract.status === "REJECTED" && contract.rejectionReason && (
                     <div className="px-5 pb-5">
-                      <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
-                        <strong>Your Rejection Reason:</strong> "{contract.rejectionReason}"
+                      <div className="bg-[#FEE2E2] border border-[#DC2626]/30 p-3.5 rounded-xl text-xs text-[#DC2626]">
+                        <strong>Rejection Reason:</strong> "{contract.rejectionReason}"
                       </div>
                     </div>
                   )}
 
-                  {contract.activatedAt && (
-                    <div className="px-5 pb-4 text-xs text-kombu/70">
-                      <strong>Activated At:</strong> {new Date(contract.activatedAt).toLocaleString()}
-                    </div>
-                  )}
-
-                  <div className="bg-brandy/10 px-5 py-3 border-t border-brandy/20 flex justify-end items-center gap-3">
+                  <div className="bg-[#F6F8F3] px-5 py-3 border-t border-[#E2E8E3] flex flex-wrap items-center justify-end gap-3">
                     {contract.status === "PENDING_APPROVAL" && (
                       <>
                         <button
                           onClick={() => handleRejectContract(contract.id)}
-                          className="px-4 py-2 border border-copper text-copper font-bold rounded-xl hover:bg-copper/5 text-xs transition-all cursor-pointer"
+                          className="px-4 py-2 border border-[#DC2626] text-[#DC2626] font-bold rounded-xl hover:bg-[#FEE2E2] text-xs transition-all cursor-pointer"
                         >
-                          Reject
+                          Reject Proposal
                         </button>
                         <button
                           onClick={() => setShowAcceptConfirmId(contract.id)}
-                          className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md hover:shadow-lg text-xs transition-all cursor-pointer"
+                          className="px-4 py-2 bg-[#166534] text-white hover:bg-[#14532d] font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
                         >
                           Accept Proposal
                         </button>
                       </>
                     )}
                     {contract.status === "ACCEPTED" && (
-                      <span className="text-xs text-pine font-bold italic">
+                      <span className="text-xs text-[#166534] font-bold italic">
                         Waiting for Buyer Activation
                       </span>
                     )}
                     {contract.status === "ACTIVE" && (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-xs text-dingley font-bold">
-                          Contract Active
+                      <div className="flex flex-wrap items-center justify-between w-full gap-3">
+                        <span className="text-xs text-[#166534] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-4 h-4 text-[#22C55E]" /> Contract Active & Running
                         </span>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setViewingContractId(contract.id)}
-                            className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                            onClick={() => openContractModal(contract.id)}
+                            className="px-4 py-2 bg-white border border-[#E2E8E3] text-[#166534] hover:bg-[#ECFDF3] font-bold rounded-xl text-xs transition-all cursor-pointer"
                           >
                             View Contract
                           </button>
@@ -1458,13 +1086,13 @@ export default function FarmerDashboard() {
                               setProgressStage("LAND_PREPARATION");
                               setProgressNotes("");
                             }}
-                            className="px-4 py-2 bg-pine text-brandy hover:bg-kombu font-bold rounded-xl text-xs transition-all cursor-pointer"
+                            className="px-4 py-2 bg-[#166534] text-white hover:bg-[#14532d] font-bold rounded-xl text-xs transition-all cursor-pointer"
                           >
                             Update Farm Progress
                           </button>
                           <button
                             onClick={() => handleCompleteContract(contract.id)}
-                            className="px-4 py-2 bg-copper text-brandy hover:bg-copper/90 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                            className="px-4 py-2 bg-[#F59E0B] text-white hover:bg-[#d97706] font-bold rounded-xl text-xs transition-all cursor-pointer"
                           >
                             Complete Contract
                           </button>
@@ -1472,22 +1100,17 @@ export default function FarmerDashboard() {
                       </div>
                     )}
                     {contract.status === "COMPLETED" && (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-xs text-pine font-bold">
-                          Contract Completed
-                        </span>
-                        <button
-                          onClick={() => setViewingContractId(contract.id)}
-                          className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
-                        >
-                          View Summary
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => openContractModal(contract.id)}
+                        className="px-4 py-2 bg-white border border-[#E2E8E3] text-[#166534] hover:bg-[#ECFDF3] font-bold rounded-xl text-xs transition-all cursor-pointer"
+                      >
+                        View Summary
+                      </button>
                     )}
                     {(contract.status === "REJECTED" || contract.status === "CANCELLED") && (
                       <button
-                        onClick={() => setViewingContractId(contract.id)}
-                        className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        onClick={() => openContractModal(contract.id)}
+                        className="px-4 py-2 bg-white border border-[#E2E8E3] text-[#17251B] hover:bg-[#F6F8F3] font-bold rounded-xl text-xs transition-all cursor-pointer"
                       >
                         View Details
                       </button>
@@ -1500,610 +1123,591 @@ export default function FarmerDashboard() {
         </div>
       )}
 
-      {/* Accept Proposal Warning Confirmation Modal */}
-      {showAcceptConfirmId && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+      {/* REGISTERED LAND PARCELS TAB CONTENT */}
+      {activeTab === "lands" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-xl font-bold text-pine">Confirm Contract Acceptance</h3>
-              <p className="text-xs text-kombu/70 mt-2 leading-relaxed">
-                Are you sure you want to accept this contract proposal? 
-              </p>
-              <div className="bg-copper/10 border border-copper/30 text-copper rounded-xl p-3.5 text-xs font-medium mt-4 leading-normal">
-                <strong>Important Warning:</strong> Accepting will bind your land parcel to this contract and change its status to <strong>UNDER_CONTRACT</strong>. Any other pending contract proposals for this plot will be rejected automatically.
-              </div>
+              <h2 className="text-xl font-extrabold text-[#17251B]">Registered Land Parcels</h2>
+              <p className="text-xs text-[#647067] mt-1">Manage your agricultural land records for contract matching.</p>
+            </div>
+            <button
+              onClick={() => {
+                setIsAdding(true);
+                resetLandForm();
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Add Land Parcel
+            </button>
+          </div>
+
+          {loadingLands ? (
+            <div className="py-20 text-center text-[#647067]">
+              <Loader2 className="w-8 h-8 animate-spin text-[#166534] mx-auto mb-3" />
+              <p className="text-sm font-semibold">Loading registered land parcels...</p>
+            </div>
+          ) : lands.length === 0 ? (
+            <div className="bg-white p-12 rounded-2xl border border-dashed border-[#E2E8E3] text-center max-w-xl mx-auto my-8">
+              <MapPin className="w-12 h-12 mb-3 text-[#166534] mx-auto" />
+              <h4 className="font-bold text-[#17251B] text-lg mb-1">No Land Parcels Registered</h4>
+              <p className="text-xs text-[#647067] mb-4">Click below to add your first land parcel with GPS coordinates.</p>
+              <button
+                onClick={() => {
+                  setIsAdding(true);
+                  resetLandForm();
+                }}
+                className="px-4 py-2 bg-[#166534] text-white text-xs font-bold rounded-xl"
+              >
+                Add Land Parcel
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {lands.map((land) => (
+                <div
+                  key={land.id}
+                  className="bg-white rounded-2xl border border-[#E2E8E3] shadow-sm overflow-hidden flex flex-col justify-between"
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        land.status === "AVAILABLE" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                        land.status === "UNDER_CONTRACT" ? "bg-[#166534] text-white" :
+                        "bg-gray-100 text-gray-600"
+                      }`}>
+                        {land.status.replace("_", " ")}
+                      </span>
+                      <span className="text-sm font-extrabold text-[#166534]">
+                        {land.size} {land.unit}s
+                      </span>
+                    </div>
+
+                    <h3 className="font-extrabold text-lg text-[#17251B] mb-1">{land.name}</h3>
+                    <p className="text-xs text-[#647067] flex items-center gap-1 mb-3">
+                      <MapPin className="w-3.5 h-3.5 text-[#166534] shrink-0" />
+                      {land.village}, {land.district}, {land.state}
+                    </p>
+
+                    <p className="text-xs text-[#647067] line-clamp-2 bg-[#F6F8F3] p-3 rounded-xl border border-[#E2E8E3]">
+                      {land.description || "No description provided."}
+                    </p>
+                  </div>
+
+                  <div className="bg-[#F6F8F3] px-6 py-3 border-t border-[#E2E8E3] flex justify-end gap-2">
+                    <button
+                      onClick={() => startEditingLand(land)}
+                      className="p-2 bg-white border border-[#E2E8E3] hover:bg-[#ECFDF3] text-[#166534] rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      title="Edit land parcel"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteLand(land.id)}
+                      className="p-2 bg-white border border-[#E2E8E3] hover:bg-[#FEE2E2] text-[#DC2626] rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      title="Delete land parcel"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CROP CATALOG TAB CONTENT */}
+      {activeTab === "crops" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm">
+            <h2 className="text-xl font-extrabold text-[#17251B] mb-1">Available Crop Categories & Metadata</h2>
+            <p className="text-xs text-[#647067]">Explore supported contract crops and standard cultivation durations.</p>
+
+            <div className="flex gap-2 overflow-x-auto scrollbar-none mt-6 pb-2">
+              {categories.map((cat) => {
+                const isSelected = selectedCategory?.id === cat.id || selectedCategory?.name === cat.name;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      fetchCrops(cat);
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      isSelected
+                        ? "bg-[#166534] text-white shadow-sm"
+                        : "bg-[#F6F8F3] text-[#647067] hover:bg-[#E2E8E3] border border-[#E2E8E3]"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {loadingCrops ? (
+            <div className="py-12 text-center text-[#647067]">
+              <Loader2 className="w-8 h-8 animate-spin text-[#166534] mx-auto mb-2" />
+              <p className="text-xs">Loading crops...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {crops.map((crop) => (
+                <div key={crop.id} className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 px-2 py-0.5 rounded">
+                      {selectedCategory?.name || "Crop"}
+                    </span>
+                    <span className="text-xs font-bold text-[#647067]">
+                      {crop.durationDays} Days Duration
+                    </span>
+                  </div>
+                  <h3 className="font-extrabold text-lg text-[#17251B]">{crop.name}</h3>
+                  <p className="text-xs text-[#647067] bg-[#F6F8F3] p-3 rounded-xl border border-[#E2E8E3]">
+                    {crop.description || "Standard contract farming crop model."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ADD / EDIT LAND MODAL OVERLAY */}
+      {(isAdding || editingLand) && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-[#E2E8E3] shadow-2xl p-6 sm:p-8 max-w-2xl w-full my-8 animate-in slide-in-from-bottom-4 duration-300 relative">
+            <div className="flex items-center justify-between border-b border-[#E2E8E3] pb-4 mb-6">
+              <h3 className="text-xl font-extrabold text-[#17251B]">
+                {editingLand ? "Edit Land Parcel Parameters" : "Register New Land Parcel"}
+              </h3>
+              <button
+                onClick={() => {
+                  setIsAdding(false);
+                  setEditingLand(null);
+                }}
+                className="p-2 rounded-full hover:bg-[#F6F8F3] text-[#647067]"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAcceptConfirmId(null)}
-                className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10 text-xs cursor-pointer"
-              >
-                Go Back
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAcceptContract(showAcceptConfirmId)}
-                className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md hover:shadow-lg text-xs cursor-pointer"
-              >
-                Accept and Lock Land
-              </button>
-            </div>
+            {formError && (
+              <div className="mb-4 p-3 bg-[#FEE2E2] border border-[#DC2626]/30 text-[#DC2626] rounded-xl text-xs font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <form onSubmit={editingLand ? handleEditLandSubmit : handleAddLandSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Parcel Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="e.g. North Field Sector A"
+                    className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Area Size</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={formSize}
+                      onChange={(e) => setFormSize(e.target.value)}
+                      placeholder="e.g. 5.5"
+                      className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Unit</label>
+                    <select
+                      value={formUnit}
+                      onChange={(e) => setFormUnit(e.target.value as any)}
+                      className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                    >
+                      <option value="ACRE">Acre</option>
+                      <option value="HECTARE">Hectare</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Village</label>
+                  <input
+                    type="text"
+                    required
+                    value={formVillage}
+                    onChange={(e) => setFormVillage(e.target.value)}
+                    placeholder="Village Name"
+                    className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">District</label>
+                  <input
+                    type="text"
+                    required
+                    value={formDistrict}
+                    onChange={(e) => setFormDistrict(e.target.value)}
+                    placeholder="District"
+                    className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">State</label>
+                  <input
+                    type="text"
+                    required
+                    value={formState}
+                    onChange={(e) => setFormState(e.target.value)}
+                    placeholder="State"
+                    className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Address</label>
+                <input
+                  type="text"
+                  required
+                  value={formAddress}
+                  onChange={(e) => setFormAddress(e.target.value)}
+                  placeholder="Full Address / Survey Number"
+                  className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={formLat}
+                    onChange={(e) => setFormLat(e.target.value)}
+                    placeholder="e.g. 30.7333"
+                    className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={formLng}
+                    onChange={(e) => setFormLng(e.target.value)}
+                    placeholder="e.g. 76.7794"
+                    className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#17251B] uppercase tracking-wider mb-1">Description / Irrigation Details</label>
+                <textarea
+                  rows={2}
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder="Tubewell irrigation, canal access, soil type..."
+                  className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none focus:border-[#166534]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#E2E8E3]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdding(false);
+                    setEditingLand(null);
+                  }}
+                  className="px-4 py-2 border border-[#E2E8E3] text-[#647067] font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formSaving}
+                  className="px-6 py-2 bg-[#166534] text-white font-bold rounded-xl hover:bg-[#14532d]"
+                >
+                  {formSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : editingLand ? "Update Parcel" : "Save Land Parcel"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Contract Details / Timeline Modal Overlay */}
+      {/* CONTRACT DETAILS / TIMELINE MODAL OVERLAY - Full Width 96vw / 1400px */}
       {viewingContractId && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-lg w-full relative my-8 animate-in slide-in-from-bottom-4 duration-300 max-h-[calc(100vh-4rem)] flex flex-col">
-            <button
-              onClick={() => setViewingContractId(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-brandy/20 text-kombu/60 hover:text-pine transition-colors cursor-pointer z-10"
-              title="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-[#E2E8E3] shadow-2xl w-[96vw] max-w-[1400px] h-[90vh] flex flex-col min-h-0 relative animate-in slide-in-from-bottom-4 duration-300">
+            
+            {/* Modal Fixed Top Header */}
+            <div className="p-6 sm:p-8 pb-4 border-b border-[#E2E8E3] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white rounded-t-2xl">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => closeContractModal()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-[#F6F8F3] hover:bg-[#ECFDF3] border border-[#E2E8E3] hover:border-[#22C55E] text-[#166534] font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0 z-20"
+                  title="Back to Dashboard"
+                >
+                  <ArrowRight className="w-4 h-4 rotate-180" />
+                  <span>Back to Dashboard</span>
+                </button>
+                <div>
+                  <span className="text-[10px] font-bold tracking-wider uppercase bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 px-2.5 py-0.5 rounded">
+                    {viewingContract?.crop?.name || "Crop"} Contract Details
+                  </span>
+                  <h3 className="text-2xl font-extrabold text-[#17251B] mt-1 flex items-center gap-3">
+                    Contract #{viewingContractId.substring(0, 8).toUpperCase()}
+                    {viewingContract && (
+                      <span className="text-xs bg-[#F6F8F3] border border-[#E2E8E3] text-[#17251B] px-2.5 py-0.5 rounded font-semibold">
+                        v{viewingContract.revision}
+                      </span>
+                    )}
+                  </h3>
+                  {viewingContract && (
+                    <p className="text-xs text-[#647067] mt-1 uppercase tracking-wider font-semibold">
+                      Current Status: <span className="text-[#166534] font-bold">{viewingContract.status.replace("_", " ")}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => closeContractModal()}
+                className="p-2 rounded-full hover:bg-[#F6F8F3] text-[#647067] hover:text-[#17251B] transition-colors cursor-pointer self-start sm:self-auto"
+                title="Close modal"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
             {loadingViewingContract ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-                <p className="text-xs text-kombu/70 mt-3">Fetching contract details...</p>
+              <div className="flex flex-col items-center justify-center flex-1 py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-[#166534]" />
+                <p className="text-xs text-[#647067] mt-3">Fetching contract details...</p>
               </div>
             ) : viewingContract ? (
-              <div className="flex flex-col flex-1 min-h-0 space-y-4 mt-2">
-                <div>
-                  <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
-                    {viewingContract.crop?.name || "Crop"} Contract Details
-                  </span>
-                  <h3 className="text-2xl font-bold text-pine mt-2 flex items-center gap-2">
-                    Contract #{viewingContract.id.substring(0, 8).toUpperCase()}
-                    <span className="text-xs bg-brandy/20 text-pine px-2 py-0.5 rounded font-semibold">
-                      v{viewingContract.revision}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-kombu/60 mt-1 uppercase tracking-wider font-semibold">
-                    Current Status: <span className="text-copper">{viewingContract.status.replace("_", " ")}</span>
-                  </p>
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                {/* Fixed Sticky Tab Navigation Bar */}
+                <div className="px-6 sm:px-8 pt-3 border-b border-[#E2E8E3] bg-white sticky top-0 z-10 shrink-0">
+                  <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 text-sm font-semibold">
+                    {[
+                      "Overview",
+                      "Financials",
+                      "Yield",
+                      "Milestones",
+                      "Tasks",
+                      "Progress",
+                      "Monitoring",
+                    ].map((tab) => {
+                      const isActive = activeDetailTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setActiveDetailTab(tab as any)}
+                          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer text-xs sm:text-sm ${
+                            isActive
+                              ? "bg-[#166534] text-white font-bold shadow-sm"
+                              : "text-[#647067] hover:text-[#17251B] hover:bg-[#F6F8F3]"
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Tab Navigation Bar */}
-                <div className="flex border-b border-brandy/20 overflow-x-auto scrollbar-none gap-2 pb-1 text-xs font-semibold shrink-0">
-                  {[
-                    "Overview",
-                    "Financials",
-                    "Yield",
-                    "Milestones",
-                    "Tasks",
-                    "Progress",
-                    "Monitoring",
-                  ].map((tab) => {
-                    const isActive = activeDetailTab === tab;
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setActiveDetailTab(tab as any)}
-                        className={`px-3 py-1.5 rounded-t-lg transition-colors whitespace-nowrap cursor-pointer ${
-                          isActive
-                            ? "bg-pine text-brandy font-bold border-b-2 border-pine"
-                            : "text-kombu/60 hover:text-pine hover:bg-brandy/5"
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Active Tab Content Area */}
-                <div className="overflow-y-auto flex-1 pr-1 space-y-4 min-h-0">
+                {/* Scrollable Content Section */}
+                <div className="p-6 sm:p-8 flex-1 overflow-y-auto min-h-0 space-y-6">
+                  
                   {activeDetailTab === "Overview" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Timeline Tracker */}
-                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4">
-                        <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Timeline Tracker</h4>
-                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                            viewingContract.status === "ACTIVE" ? "bg-dingley/20 text-pine" : "bg-brandy/20 text-pine"
-                          }`}>
-                            {viewingContract.status}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-xs font-medium text-kombu">
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4">
+                        <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider border-b border-[#E2E8E3] pb-2">
+                          Contract Timeline & Valuation
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs font-medium">
                           <div>
-                            <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Proposed Start Date</span>
-                            <span>{new Date(viewingContract.startDate).toLocaleDateString()}</span>
+                            <span className="text-[#647067] block font-bold uppercase">Proposed Start Date</span>
+                            <span className="font-extrabold text-sm text-[#17251B]">{new Date(viewingContract.startDate).toLocaleDateString()}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Target Harvest Date</span>
-                            <span>{new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}</span>
+                            <span className="text-[#647067] block font-bold uppercase">Target Harvest Date</span>
+                            <span className="font-extrabold text-sm text-[#17251B]">{new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}</span>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Contract Health Overview Banner */}
-                      {viewingContractOverview && (
-                        <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
-                          viewingContractOverview.health === "COMPLETED" ? "bg-dingley/15 text-pine border border-dingley/30" :
-                          viewingContractOverview.health === "NEEDS_ATTENTION" ? "bg-red-50 text-red-800 border border-red-200" :
-                          "bg-copper/10 text-copper border border-copper/30"
-                        }`}>
                           <div>
-                            <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Contract Health Status</p>
-                            <p className="text-base font-bold mt-0.5">
-                              {viewingContractOverview.health.replace("_", " ")}
-                            </p>
+                            <span className="text-[#647067] block font-bold uppercase">Contract Valuation</span>
+                            <span className="font-extrabold text-sm text-[#166534]">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
                           </div>
-                          <div className="text-right">
-                            <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Timeline Progress</p>
-                            <p className="text-base font-bold mt-0.5">{viewingContractOverview.progressPercentage}%</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Grid Info */}
-                      <div className="grid grid-cols-2 gap-4 text-xs font-medium">
-                        <div>
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Buyer Involved</span>
-                          <span className="font-bold text-pine">{viewingContract.buyer?.name}</span>
-                          <span className="text-[10px] text-kombu/60 block">{viewingContract.buyer?.phone}</span>
-                        </div>
-                        <div>
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Farmer Owner</span>
-                          <span className="font-bold text-pine">{viewingContract.landowner?.name}</span>
-                          <span className="text-[10px] text-kombu/60 block">{viewingContract.landowner?.phone}</span>
-                        </div>
-                        <div className="col-span-2 border-t border-brandy/20 pt-3">
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Land Parcel Details</span>
-                          <span className="font-bold text-pine">{viewingContract.land?.name}</span>
-                          <span className="text-kombu/70 block mt-0.5">
-                            {viewingContract.land?.village}, {viewingContract.land?.district}, {viewingContract.land?.state}
-                          </span>
-                        </div>
-                        <div className="border-t border-brandy/20 pt-3">
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Proposed Area</span>
-                          <span className="font-bold text-pine text-sm">{viewingContract.landArea} Acres</span>
-                        </div>
-                        <div className="border-t border-brandy/20 pt-3">
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Payout Valuation</span>
-                          <span className="font-bold text-copper text-sm">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
                         </div>
                       </div>
 
                       {viewingContract.notes && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
-                          <strong>Proposal Note log:</strong> "{viewingContract.notes}"
-                        </div>
-                      )}
-
-                      {viewingContract.status === "REJECTED" && viewingContract.rejectionReason && (
-                        <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
-                          <strong>Your Rejection Reason:</strong> "{viewingContract.rejectionReason}"
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-4 rounded-xl text-xs text-[#17251B]">
+                          <strong>Negotiation Notes:</strong> "{viewingContract.notes}"
                         </div>
                       )}
                     </div>
                   )}
 
                   {activeDetailTab === "Financials" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Financial Allocation Card (Farmer/Landowner Read-Only View) */}
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {viewingContractOverview?.financialSummary ? (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
-                          <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Financial Breakdown</h4>
-                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                              viewingContractOverview.financialSummary.isConfigured ? "bg-dingley/20 text-pine" : "bg-amber-100 text-amber-800"
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                          <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-2">
+                            <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider font-bold">Financial Breakdown</h4>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                              viewingContractOverview.financialSummary.isConfigured ? "bg-[#ECFDF3] text-[#166534]" : "bg-amber-100 text-amber-800"
                             }`}>
                               {viewingContractOverview.financialSummary.isConfigured ? "Agreed Budget" : "Tentative"}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white p-4 rounded-xl border border-[#E2E8E3]">
                             <div>
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Your Payment (Landowner Amount)</span>
-                              <span className="font-bold text-pine">₹{viewingContractOverview.financialSummary.landownerAmount.toLocaleString("en-IN")}</span>
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Landowner Amount</span>
+                              <span className="font-bold text-[#166534] text-sm">₹{viewingContractOverview.financialSummary.landownerAmount?.toLocaleString("en-IN")}</span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Workforce Budget</span>
-                              <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.workforceBudget.toLocaleString("en-IN")}</span>
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Workforce Budget</span>
+                              <span className="font-semibold text-[#17251B]">₹{viewingContractOverview.financialSummary.workforceBudget?.toLocaleString("en-IN")}</span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Logistics Budget</span>
-                              <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.logisticsBudget.toLocaleString("en-IN")}</span>
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Logistics Budget</span>
+                              <span className="font-semibold text-[#17251B]">₹{viewingContractOverview.financialSummary.logisticsBudget?.toLocaleString("en-IN")}</span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Platform Service Fee (10%)</span>
-                              <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.platformFee.toLocaleString("en-IN")}</span>
-                            </div>
-                            <div className="col-span-2 border-t border-brandy/25 pt-2">
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Total Agreed Contract Budget Value</span>
-                              <span className="font-bold text-copper text-sm">₹{viewingContractOverview.financialSummary.totalContractValue.toLocaleString("en-IN")}</span>
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Total Valuation</span>
+                              <span className="font-bold text-[#166534] text-sm">₹{viewingContractOverview.financialSummary.totalProposedPrice?.toLocaleString("en-IN")}</span>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
-                          Financial breakdown unavailable.
-                        </div>
+                        <p className="text-xs text-[#647067]">Financial breakdown data currently loading.</p>
                       )}
                     </div>
                   )}
 
                   {activeDetailTab === "Yield" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Yield & Fulfillment Card with Harvest Submission */}
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {viewingContractOverview?.yieldSummary ? (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider flex items-center justify-between border-b border-brandy/10 pb-2 font-bold">
-                            <span>Crop Production & Yield</span>
-                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                              viewingContractOverview.yieldSummary.fulfillmentStatus === "FULFILLED" ? "bg-dingley/20 text-pine" :
-                              viewingContractOverview.yieldSummary.fulfillmentStatus === "OVERFULFILLED" ? "bg-green-100 text-green-800" :
-                              viewingContractOverview.yieldSummary.fulfillmentStatus === "PARTIAL" ? "bg-amber-100 text-amber-805" :
-                              "bg-brandy/20 text-pine"
-                            }`}>
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider flex items-center justify-between border-b border-[#E2E8E3] pb-2 font-bold">
+                            <span>Crop Production & Harvest Summary</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-[#ECFDF3] text-[#166534]">
                               {viewingContractOverview.yieldSummary.fulfillmentStatus}
                             </span>
                           </h4>
                           
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white/60 p-3 rounded-xl border border-brandy/10">
-                              <span className="text-[10px] text-kombu/60 block uppercase font-bold tracking-wide">Estimated Yield</span>
-                              <span className="font-bold text-pine text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-white p-4 rounded-xl border border-[#E2E8E3]">
+                              <span className="text-[10px] text-[#647067] block uppercase font-bold tracking-wide">Target Agreed Yield</span>
+                              <span className="font-bold text-[#17251B] text-base">
                                 {viewingContractOverview.yieldSummary.estimatedQuantity !== null
                                   ? `${viewingContractOverview.yieldSummary.estimatedQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
                                   : "Unavailable"}
                               </span>
                             </div>
-                            <div className="bg-white/60 p-3 rounded-xl border border-brandy/10">
-                              <span className="text-[10px] text-kombu/60 block uppercase font-bold tracking-wide">Actual Harvested</span>
-                              <span className="font-bold text-copper text-sm">
+                            <div className="bg-white p-4 rounded-xl border border-[#E2E8E3]">
+                              <span className="text-[10px] text-[#647067] block uppercase font-bold tracking-wide">Actual Harvested Record</span>
+                              <span className="font-bold text-[#166534] text-base">
                                 {viewingContractOverview.yieldSummary.actualQuantity !== null
                                   ? `${viewingContractOverview.yieldSummary.actualQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
-                                  : "Not recorded"}
+                                  : "Not recorded yet"}
                               </span>
                             </div>
                           </div>
 
                           {/* Harvest Submission Form for Landowner */}
-                          {viewingContract.status === "ACTIVE" && (
-                            <form onSubmit={handleSaveHarvest} className="space-y-3 pt-2 border-t border-brandy/10">
-                              <div className="flex flex-col sm:flex-row items-end justify-between gap-3">
-                                <div className="flex-1 w-full">
-                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">
-                                    Record Actual Harvest Quantity ({viewingContract.demand?.quantityUnit || "Tonnes"})
-                                  </label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    disabled={
-                                      !viewingContract.progressUpdates?.some(
-                                        (pu: any) => pu.stage === "HARVEST_READY" || pu.stage === "HARVEST_COMPLETED"
-                                      )
-                                    }
-                                    placeholder={
-                                      viewingContract.progressUpdates?.some(
-                                        (pu: any) => pu.stage === "HARVEST_READY" || pu.stage === "HARVEST_COMPLETED"
-                                      )
-                                        ? "Enter quantity harvested"
-                                        : "Available once harvest is ready/completed"
-                                    }
-                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                    value={actualHarvestQty}
-                                    onChange={(e) => setActualHarvestQty(e.target.value)}
-                                    required
-                                  />
-                                </div>
-                                <button
-                                  type="submit"
-                                  disabled={
-                                    savingHarvest ||
-                                    !viewingContract.progressUpdates?.some(
-                                      (pu: any) => pu.stage === "HARVEST_READY" || pu.stage === "HARVEST_COMPLETED"
-                                    )
-                                  }
-                                  className="px-4 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-lg text-xs shadow transition-colors disabled:opacity-50 cursor-pointer shrink-0 w-full sm:w-auto text-center"
-                                >
-                                  {savingHarvest ? "Saving..." : "Submit Harvest"}
-                                </button>
+                          <div className="bg-white p-6 rounded-xl border border-[#22C55E]/30 space-y-3">
+                            <h5 className="font-bold text-sm text-[#17251B]">Record Actual Harvest Yield</h5>
+                            <p className="text-xs text-[#647067]">Submit final harvested quantity for buyer verification.</p>
+                            
+                            {harvestError && (
+                              <div className="p-3 bg-[#FEE2E2] text-[#DC2626] rounded-xl text-xs font-semibold">
+                                {harvestError}
                               </div>
-                              {harvestError && (
-                                <p className="text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded-lg">{harvestError}</p>
-                              )}
+                            )}
+
+                            <form onSubmit={handleRecordHarvest} className="flex flex-col sm:flex-row gap-3">
+                              <input
+                                type="number"
+                                step="0.01"
+                                required
+                                value={actualHarvestQty}
+                                onChange={(e) => setActualHarvestQty(e.target.value)}
+                                placeholder={`Enter quantity in ${viewingContract.demand?.quantityUnit || "Tonnes"}`}
+                                className="flex-1 p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-xs text-[#17251B] font-bold outline-none"
+                              />
+                              <button
+                                type="submit"
+                                disabled={savingHarvest}
+                                className="px-5 py-3 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl text-xs transition-all cursor-pointer shrink-0"
+                              >
+                                {savingHarvest ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save Harvest Record"}
+                              </button>
                             </form>
-                          )}
+                          </div>
                         </div>
                       ) : (
-                        <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
-                          Yield parameters not initialized yet.
-                        </div>
+                        <p className="text-xs text-[#647067]">Yield summary data loading...</p>
                       )}
                     </div>
                   )}
 
                   {activeDetailTab === "Milestones" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Crop Milestone Plan Card (Farmer View) */}
-                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs">
-                        <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                          <div>
-                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Crop Milestone Plan</h4>
-                            <p className="text-[9px] text-kombu/60 mt-0.5">
-                              Planned Cultivation stages generated by the system.
-                            </p>
-                          </div>
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      {loadingMilestones ? (
+                        <div className="py-12 text-center text-[#647067]">
+                          <Loader2 className="w-6 h-6 animate-spin text-[#166534] mx-auto mb-2" />
+                          <p className="text-xs">Loading cultivation milestones...</p>
                         </div>
-
-                        {loadingMilestones ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-dingley" />
-                            <span className="text-[10px] text-kombu/60 ml-2">Loading crop milestones...</span>
-                          </div>
-                        ) : milestonesLoadError ? (
-                          <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
-                            <p className="font-semibold text-[10px]">Crop milestone plan unavailable</p>
-                            <p className="text-[9px] opacity-85 mt-0.5">{milestonesLoadError}</p>
-                          </div>
-                        ) : viewingContractMilestones.length > 0 ? (
-                          <div className="relative border-l border-brandy/30 ml-2 pl-4 space-y-3 py-1">
-                            {viewingContractMilestones.map((ms: any) => {
-                              const statusColors = 
-                                ms.status === "COMPLETED" ? "bg-dingley/20 text-pine" :
-                                ms.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-800" :
-                                ms.status === "OVERDUE" ? "bg-red-100 text-red-800 font-bold" :
-                                "bg-gray-100 text-gray-700";
-
-                              return (
-                                <div key={ms.id} className="relative">
-                                  <span className={`absolute -left-[22px] top-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold ring-4 ring-white ${
-                                    ms.status === "COMPLETED" ? "bg-dingley text-white" : "bg-brandy/30 text-kombu"
-                                  }`}>
-                                    {ms.sequence}
-                                  </span>
-                                  <div className="bg-white/60 p-2.5 rounded-xl border border-brandy/10 flex justify-between items-start gap-4 shadow-sm">
-                                    <div>
-                                      <p className="font-bold text-pine text-xs">{ms.title}</p>
-                                      <p className="text-[10px] text-kombu/60 mt-0.5">
-                                        Planned: {new Date(ms.plannedDate).toLocaleDateString("en-IN", {
-                                          day: "numeric",
-                                          month: "short",
-                                          year: "numeric"
-                                        })}
-                                      </p>
-                                      {ms.completedAt && (
-                                        <p className="text-[9px] text-dingley font-semibold mt-0.5">
-                                          Completed: {new Date(ms.completedAt).toLocaleDateString("en-IN", {
-                                            day: "numeric",
-                                            month: "short",
-                                            year: "numeric"
-                                          })}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${statusColors}`}>
-                                      {ms.status}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
-                            No milestones generated for this contract.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeDetailTab === "Tasks" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Crop Actionable Tasks Card (Farmer/Landowner View - Interactive) */}
-                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs">
-                        <div>
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Crop Actionable Tasks</h4>
-                          <p className="text-[9px] text-kombu/60 mt-0.5">
-                            Farming checklists checklist per stage. Update task status as work progresses.
-                          </p>
+                      ) : milestonesLoadError ? (
+                        <div className="p-4 bg-[#FEE2E2] text-[#DC2626] rounded-xl text-xs font-semibold">
+                          {milestonesLoadError}
                         </div>
-
-                        {loadingTasks ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-dingley" />
-                            <span className="text-[10px] text-kombu/60 ml-2">Loading crop tasks...</span>
-                          </div>
-                        ) : tasksLoadError ? (
-                          <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
-                            <p className="font-semibold text-[10px]">Crop tasks unavailable</p>
-                            <p className="text-[9px] opacity-85 mt-0.5">{tasksLoadError}</p>
-                          </div>
-                        ) : viewingContractTasks.length > 0 ? (
-                          <div className="space-y-4">
-                            {viewingContractMilestones.map((ms: any) => {
-                              const msTasks = viewingContractTasks.filter((t) => t.milestoneId === ms.id);
-                              if (msTasks.length === 0) return null;
-
-                              return (
-                                <div key={ms.id} className="bg-white/60 p-3.5 rounded-xl border border-brandy/10 space-y-2">
-                                  <h5 className="font-bold text-pine text-xs border-b border-brandy/10 pb-1.5 flex justify-between items-center font-bold">
-                                    <span>Stage {ms.sequence}: {ms.title}</span>
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-pine/10 text-pine rounded font-semibold uppercase">
-                                      {ms.status}
-                                    </span>
-                                  </h5>
-                                  <div className="space-y-3 pt-1">
-                                    {msTasks.map((task: any) => {
-                                      const priorityColors = 
-                                        task.priority === "CRITICAL" ? "text-red-600 bg-red-50 border border-red-100" :
-                                        task.priority === "HIGH" ? "text-amber-700 bg-amber-50 border border-amber-100" :
-                                        task.priority === "MEDIUM" ? "text-pine bg-dingley/10 border border-dingley/20" :
-                                        "text-kombu/60 bg-gray-50 border border-gray-100";
-
-                                      const isOverdue = task.status === "OVERDUE";
-                                      const statusSelectStyle = 
-                                        task.status === "COMPLETED" ? "border-dingley bg-dingley/5 text-pine font-bold" :
-                                        task.status === "IN_PROGRESS" ? "border-amber-400 bg-amber-50 text-amber-800 font-bold" :
-                                        task.status === "OVERDUE" ? "border-red-400 bg-red-50 text-red-800 font-bold" :
-                                        "border-brandy/40 bg-white text-kombu/80";
-
-                                      return (
-                                        <div key={task.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pl-1 text-[11px] border-b border-brandy/5 pb-2 last:border-0 last:pb-0">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-1.5">
-                                              <p className={`font-semibold ${task.status === 'COMPLETED' ? 'line-through text-kombu/40' : 'text-kombu'}`}>
-                                                {task.sequence}. {task.title}
-                                              </p>
-                                              {isOverdue && (
-                                                <span className="text-[9px] font-bold text-red-600 animate-pulse bg-red-100/50 px-1 rounded">
-                                                  ⚠ OVERDUE BY {task.daysOverdue} DAYS
-                                                </span>
-                                              )}
-                                            </div>
-                                            {task.description && (
-                                              <p className="text-[9.5px] text-kombu/50 mt-0.5">{task.description}</p>
-                                            )}
-                                            <div className="flex gap-2 items-center mt-1 text-[8.5px]">
-                                              <span className={`px-1 rounded ${priorityColors}`}>{task.priority} Priority</span>
-                                              {task.dueDate && (
-                                                <span className="text-kombu/50">
-                                                  Due: {new Date(task.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </div>
-
-                                          <div className="flex items-center gap-2 self-start sm:self-center">
-                                            {updatingTaskId === task.id ? (
-                                              <Loader2 className="w-4 h-4 animate-spin text-dingley" />
-                                            ) : (
-                                              <select
-                                                value={task.storedStatus}
-                                                onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
-                                                className={`text-[9px] p-1 border rounded outline-none font-bold uppercase transition-colors cursor-pointer ${statusSelectStyle}`}
-                                              >
-                                                <option value="PENDING">PENDING</option>
-                                                <option value="IN_PROGRESS">IN PROGRESS</option>
-                                                <option value="COMPLETED">COMPLETED</option>
-                                                <option value="CANCELLED">CANCELLED</option>
-                                              </select>
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                      ) : viewingContractMilestones.length === 0 ? (
+                        <p className="text-xs text-[#647067]">No cultivation milestones generated yet.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider border-b border-[#E2E8E3] pb-2">
+                            Cultivation Progress Timeline
+                          </h4>
+                          <div className="grid grid-cols-1 gap-3">
+                            {viewingContractMilestones.map((m, idx) => (
+                              <div
+                                key={m.id || idx}
+                                className={`p-4 rounded-xl border flex items-center justify-between text-xs ${
+                                  m.status === "COMPLETED" ? "bg-[#ECFDF3] border-[#22C55E]/30 text-[#166534]" :
+                                  m.status === "IN_PROGRESS" ? "bg-[#FEF3C7] border-[#F59E0B]/30 text-[#F59E0B]" :
+                                  "bg-[#F6F8F3] border-[#E2E8E3] text-[#647067]"
+                                }`}
+                              >
+                                <div>
+                                  <span className="font-extrabold text-sm block">{m.stage.replace("_", " ")}</span>
+                                  <span className="text-[10px] text-[#647067]">Due: {new Date(m.targetCompletionDate).toLocaleDateString()}</span>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
-                            No actionable tasks generated for this contract status.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeDetailTab === "Progress" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Milestone Stepper */}
-                      {viewingContract.status === "ACTIVE" && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Milestone Stepper</h4>
-                          <div className="flex justify-between items-center text-[10px] text-kombu/70">
-                            {[
-                              { key: "LAND_PREPARATION", label: "Prep" },
-                              { key: "SOWING", label: "Sowing" },
-                              { key: "GROWING", label: "Growing" },
-                              { key: "HARVEST_READY", label: "Harvest Ready" },
-                              { key: "HARVEST_COMPLETED", label: "Harvested" },
-                            ].map((step, idx) => {
-                              const isCompleted = viewingContract.progressUpdates?.some((pu: any) => pu.stage === step.key);
-                              const isLatest = viewingContract.progressUpdates && viewingContract.progressUpdates[viewingContract.progressUpdates.length - 1]?.stage === step.key;
-                              return (
-                                <div key={step.key} className="flex flex-col items-center flex-1 relative">
-                                  {/* Connector line */}
-                                  {idx > 0 && (
-                                    <div className={`absolute left-[-50%] right-[50%] top-2.5 h-[2px] z-0 ${
-                                      isCompleted ? "bg-dingley" : "bg-brandy/20"
-                                    }`} />
-                                  )}
-                                  <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-[9px] relative z-10 ${
-                                    isLatest ? "bg-pine text-white ring-4 ring-pine/20" :
-                                    isCompleted ? "bg-dingley text-white" :
-                                    "bg-brandy/20 text-kombu/45"
-                                  }`}>
-                                    {idx + 1}
-                                  </div>
-                                  <span className={`mt-1 font-semibold ${isLatest ? "text-pine font-bold" : isCompleted ? "text-dingley" : "text-kombu/50"}`}>{step.label}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Farm Progress History */}
-                      {viewingContract.status === "ACTIVE" && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Farm Progress History</h4>
-                          {!viewingContract.progressUpdates || viewingContract.progressUpdates.length === 0 ? (
-                            <p className="text-xs text-kombu/50 italic">No farming progress updates yet.</p>
-                          ) : (
-                            <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
-                              {viewingContract.progressUpdates.map((update: any) => (
-                                <div key={update.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1">
-                                  <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
-                                    <span className="font-bold text-pine uppercase tracking-wide text-[10px]">
-                                      {update.stage.replace("_", " ")}
-                                    </span>
-                                    <span className="text-[9px] text-kombu/60">
-                                      {new Date(update.createdAt).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  {update.notes && (
-                                    <p className="text-[10px] text-kombu/80 mt-1 italic font-medium">"{update.notes}"</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Negotiation History UI */}
-                      {viewingContract.history && viewingContract.history.length > 0 && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-semibold font-bold">Negotiation History ({viewingContract.history.length} previous rounds)</h4>
-                          <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
-                            {viewingContract.history.map((hist: any) => (
-                              <div key={hist.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1.5">
-                                <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
-                                  <span className="font-bold text-pine">Round {hist.revision}</span>
-                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                    hist.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                                    hist.status === "CANCELLED" ? "bg-gray-150 text-gray-500" :
-                                    "bg-gray-100 text-gray-700"
-                                  }`}>
-                                    {hist.status.replace("_", " ")}
-                                  </span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 text-[10px] text-kombu/70">
-                                  <div>Proposed Price: <strong className="text-pine">₹{hist.proposedPrice.toLocaleString("en-IN")}</strong></div>
-                                  <div>Area: <strong>{hist.landArea} Acres</strong></div>
-                                  <div>Harvest Date: <strong>{new Date(hist.expectedHarvestDate).toLocaleDateString()}</strong></div>
-                                  <div>Quantity: <strong>{hist.allocatedQuantity.toFixed(1)} Tonnes</strong></div>
-                                </div>
-                                {hist.notes && (
-                                  <p className="text-[10px] text-kombu/60 italic">Buyer Note: "{hist.notes}"</p>
-                                )}
-                                {hist.rejectionReason && (
-                                  <p className="text-[10px] text-red-600 bg-red-50 p-1.5 rounded">Rejection Reason: "{hist.rejectionReason}"</p>
-                                )}
+                                <span className="font-bold text-xs uppercase px-2.5 py-1 rounded bg-white border border-[#E2E8E3]">
+                                  {m.status}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -2112,107 +1716,191 @@ export default function FarmerDashboard() {
                     </div>
                   )}
 
-                  {activeDetailTab === "Monitoring" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Contract Monitoring & Alerts (Farmer View) */}
-                      {viewingContractOverview && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
-                          <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Contract Alert Summary</h4>
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                              viewingContractOverview.activeAlertCount > 0 ? "bg-red-100 text-red-700" : "bg-dingley/20 text-pine"
-                            }`}>
-                              {viewingContractOverview.activeAlertCount} Issue{viewingContractOverview.activeAlertCount !== 1 ? "s" : ""} Active
-                            </span>
+                  {activeDetailTab === "Tasks" && (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      {loadingTasks ? (
+                        <div className="py-12 text-center text-[#647067]">
+                          <Loader2 className="w-6 h-6 animate-spin text-[#166534] mx-auto mb-2" />
+                          <p className="text-xs">Loading farm tasks...</p>
+                        </div>
+                      ) : tasksLoadError ? (
+                        <div className="p-4 bg-[#FEE2E2] text-[#DC2626] rounded-xl text-xs font-semibold">
+                          {tasksLoadError}
+                        </div>
+                      ) : viewingContractTasks.length === 0 ? (
+                        <p className="text-xs text-[#647067]">No tasks recorded for this contract.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider border-b border-[#E2E8E3] pb-2">
+                            Field Action Items & Task Status
+                          </h4>
+                          <div className="space-y-3">
+                            {viewingContractTasks.map((t) => (
+                              <div key={t.id} className="p-4 bg-[#F6F8F3] rounded-xl border border-[#E2E8E3] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                                <div>
+                                  <h5 className="font-bold text-sm text-[#17251B]">{t.title}</h5>
+                                  <p className="text-[#647067] mt-0.5">{t.description || "Field operation task."}</p>
+                                  <span className="text-[10px] text-[#647067] block mt-1">Due: {new Date(t.dueDate).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    disabled={updatingTaskId === t.id}
+                                    value={t.status}
+                                    onChange={(e) => handleUpdateTaskStatus(t.id, e.target.value)}
+                                    className="p-2 bg-white border border-[#E2E8E3] rounded-xl text-xs font-bold text-[#17251B] outline-none"
+                                  >
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="IN_PROGRESS">IN PROGRESS</option>
+                                    <option value="COMPLETED">COMPLETED</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                  </select>
+                                  {updatingTaskId === t.id && <Loader2 className="w-4 h-4 animate-spin text-[#166534]" />}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-
-                          {viewingContractOverview.activeAlertCount > 0 ? (
-                            <div className="space-y-2.5">
-                              {viewingContractOverview.monitoringAlertsSummary.map((alert: any) => {
-                                const alertColors = 
-                                  alert.severity === "CRITICAL" ? "bg-red-50 text-red-800 border-red-200" :
-                                  alert.severity === "WARNING" ? "bg-amber-50 text-amber-805 border-amber-200" :
-                                  "bg-blue-50 text-blue-800 border-blue-200";
-
-                                return (
-                                  <div key={alert.id || alert.message} className={`p-3 rounded-xl border flex items-start gap-2.5 ${alertColors}`}>
-                                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                                    <div>
-                                      <p className="font-bold text-[11.5px]">{alert.message}</p>
-                                      {alert.milestone && (
-                                        <p className="text-[9.5px] opacity-80 mt-0.5">Stage: {alert.milestone}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="p-3 bg-white/60 border border-brandy/10 rounded-xl text-center text-kombu/60 italic font-medium">
-                              Everything is running on track! No milestones or harvests are delayed.
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
                   )}
+
+                  {activeDetailTab === "Progress" && (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      <div className="bg-[#F6F8F3] p-6 rounded-2xl border border-[#E2E8E3] space-y-4">
+                        <h4 className="font-bold text-sm text-[#17251B]">Log New Farm Progress Stage</h4>
+                        <form onSubmit={handlePostProgressUpdate} className="space-y-3 text-xs">
+                          <div>
+                            <label className="block font-bold text-[#17251B] mb-1">Cultivation Stage</label>
+                            <select
+                              value={progressStage}
+                              onChange={(e) => setProgressStage(e.target.value)}
+                              className="w-full p-3 bg-white border border-[#E2E8E3] rounded-xl text-[#17251B] font-bold outline-none"
+                            >
+                              <option value="LAND_PREPARATION">Land Preparation</option>
+                              <option value="SOWING">Sowing / Planting</option>
+                              <option value="GERMINATION">Germination</option>
+                              <option value="VEGETATIVE">Vegetative Growth</option>
+                              <option value="FLOWERING">Flowering</option>
+                              <option value="HARVEST_READY">Harvest Ready</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block font-bold text-[#17251B] mb-1">Stage Notes & Observations</label>
+                            <textarea
+                              rows={2}
+                              value={progressNotes}
+                              onChange={(e) => setProgressNotes(e.target.value)}
+                              placeholder="Describe crop height, soil condition, irrigation..."
+                              className="w-full p-3 bg-white border border-[#E2E8E3] rounded-xl text-[#17251B] font-semibold outline-none"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            disabled={submittingProgress}
+                            className="px-5 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl text-xs cursor-pointer"
+                          >
+                            {submittingProgress ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Post Stage Update"}
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeDetailTab === "Monitoring" && (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      <div className="bg-[#F6F8F3] p-6 rounded-2xl border border-[#E2E8E3] space-y-4 text-xs">
+                        <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-2">
+                          <h4 className="font-bold text-[#17251B] uppercase tracking-wider">Phase 6.2 Contract Health Status</h4>
+                          <span className="px-2.5 py-0.5 bg-[#ECFDF3] text-[#166534] rounded font-bold uppercase">
+                            ON TRACK
+                          </span>
+                        </div>
+                        <p className="text-[#647067]">
+                          Automated monitoring engine verifies timeline adherence, task completions, and temperature range requirements.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
 
-                {/* Footer close button */}
-                <div className="flex justify-end pt-2 border-t border-brandy/10 shrink-0">
+                {/* Modal Fixed Footer */}
+                <div className="px-6 sm:px-8 py-4 border-t border-[#E2E8E3] flex justify-end shrink-0 bg-white rounded-b-2xl">
                   <button
-                    onClick={() => setViewingContractId(null)}
-                    className="px-5 py-2.5 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer animate-in fade-in"
+                    onClick={() => closeContractModal()}
+                    className="px-6 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl shadow-sm text-xs cursor-pointer transition-all"
                   >
                     Close View
                   </button>
                 </div>
+
               </div>
             ) : (
-              <p className="text-xs text-copper font-semibold">Error displaying contract details.</p>
+              <div className="p-8 text-center space-y-4">
+                <p className="text-xs text-[#DC2626] font-semibold">Error displaying contract details.</p>
+                <button
+                  onClick={() => closeContractModal()}
+                  className="px-4 py-2 bg-[#166534] text-white text-xs font-bold rounded-xl"
+                >
+                  Close
+                </button>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Reject Reason input dialog overlay modal */}
-      {rejectingContractId && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
-            <div>
-              <h3 className="text-xl font-bold text-pine">Reject Proposal</h3>
-              <p className="text-xs text-kombu/70 mt-1">
-                Please specify a reason for rejecting this cultivation proposal. This comment will be visible to the buyer.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <textarea
-                rows={4}
-                required
-                placeholder="e.g. The proposed payout price is too low for this land area..."
-                value={rejectionText}
-                onChange={(e) => setRejectionText(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-xs text-pine font-medium"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
+      {/* ACCEPT CONFIRMATION DIALOG */}
+      {showAcceptConfirmId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E2E8E3] max-w-md w-full text-center space-y-4">
+            <ShieldCheck className="w-12 h-12 text-[#166534] mx-auto" />
+            <h3 className="text-xl font-extrabold text-[#17251B]">Accept Contract Proposal?</h3>
+            <p className="text-xs text-[#647067]">
+              By accepting this proposal, you agree to allocate your land parcel for this crop cycle under the proposed terms.
+            </p>
+            <div className="flex justify-center gap-3 pt-2">
               <button
-                type="button"
-                onClick={() => {
-                  setRejectingContractId(null);
-                  setRejectionText("");
-                }}
-                className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10 text-xs cursor-pointer"
+                onClick={() => setShowAcceptConfirmId(null)}
+                className="px-4 py-2 border border-[#E2E8E3] text-[#647067] font-bold rounded-xl text-xs"
               >
                 Cancel
               </button>
               <button
-                type="button"
+                onClick={() => handleAcceptContract(showAcceptConfirmId)}
+                className="px-6 py-2 bg-[#166534] text-white font-bold rounded-xl text-xs hover:bg-[#14532d]"
+              >
+                Confirm & Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT PROPOSAL REASON DIALOG */}
+      {rejectingContractId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E2E8E3] max-w-md w-full space-y-4">
+            <h3 className="text-xl font-extrabold text-[#17251B]">Reject Contract Proposal</h3>
+            <p className="text-xs text-[#647067]">Please state your reason for rejecting this buyer proposal.</p>
+            <textarea
+              rows={3}
+              value={rejectionText}
+              onChange={(e) => setRejectionText(e.target.value)}
+              placeholder="e.g. Price too low, timeline conflict..."
+              className="w-full p-3 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-xs font-semibold outline-none text-[#17251B]"
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setRejectingContractId(null)}
+                className="px-4 py-2 border border-[#E2E8E3] text-[#647067] font-bold rounded-xl text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReject}
                 disabled={!rejectionText.trim()}
-                onClick={() => handleConfirmReject()}
-                className="px-5 py-2 bg-copper hover:bg-copper/90 text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer disabled:opacity-50"
+                className="px-6 py-2 bg-[#DC2626] text-white font-bold rounded-xl text-xs hover:bg-red-700 disabled:opacity-50"
               >
                 Confirm Rejection
               </button>
@@ -2221,68 +1909,29 @@ export default function FarmerDashboard() {
         </div>
       )}
 
-      {/* Update Farm Progress Stage Overlay Modal */}
-      {showProgressModalContract && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
-            <div>
-              <h3 className="text-xl font-bold text-pine">Update Farm Progress</h3>
-              <p className="text-xs text-kombu/70 mt-1">
-                Post a new farming milestone progress update for Contract <strong>#{showProgressModalContract.id.substring(0, 8).toUpperCase()}</strong>.
-              </p>
-            </div>
-
-            <form onSubmit={handlePostProgressSubmit} className="space-y-4 text-xs font-medium">
-              <div>
-                <label className="text-kombu/70 block uppercase font-bold tracking-wider mb-1.5">Farming Milestone Stage</label>
-                <select
-                  value={progressStage}
-                  onChange={(e) => setProgressStage(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-xs text-pine font-medium"
-                >
-                  <option value="LAND_PREPARATION">Land Preparation</option>
-                  <option value="SOWING">Sowing</option>
-                  <option value="GROWING">Growing</option>
-                  <option value="HARVEST_READY">Harvest Ready</option>
-                  <option value="HARVEST_COMPLETED">Harvest Completed</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-kombu/70 block uppercase font-bold tracking-wider mb-1.5">Optional Notes / Details</label>
-                <textarea
-                  rows={4}
-                  placeholder="e.g. Field preparation completed, starting irrigation planning..."
-                  value={progressNotes}
-                  onChange={(e) => setProgressNotes(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-xs text-pine font-medium"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowProgressModalContract(null);
-                    setProgressStage("LAND_PREPARATION");
-                    setProgressNotes("");
-                  }}
-                  className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10 text-xs cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingProgress}
-                  className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer disabled:opacity-50"
-                >
-                  {submittingProgress ? "Posting..." : "Post Update"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+// Helper LayoutGridIcon
+function LayoutGridIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="7" height="7" x="3" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="14" rx="1" />
+      <rect width="7" height="7" x="3" y="14" rx="1" />
+    </svg>
   );
 }

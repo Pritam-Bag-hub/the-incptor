@@ -209,7 +209,7 @@ export default function BuyerDashboard() {
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialsError, setFinancialsError] = useState("");
 
-  // Preserved Phase 1 Landlord mock list for Overview Tab
+  // Preserved Phase 1 Landlord mock list for Overview Tab (Labeled demo data)
   const landlords = [
     {
       id: "L-101",
@@ -653,6 +653,62 @@ export default function BuyerDashboard() {
     }
   };
 
+  const modalPushedRef = React.useRef(false);
+
+  const openContractModal = (contractId: string) => {
+    if (!contractId) return;
+    setViewingContractId(contractId);
+    setActiveTab("my-contracts");
+    if (!modalPushedRef.current && typeof window !== "undefined") {
+      try {
+        window.history.pushState({ buyerContractModal: true }, "", window.location.pathname);
+        modalPushedRef.current = true;
+      } catch (err) {
+        console.error("pushState error:", err);
+      }
+    }
+  };
+
+  const closeContractModal = () => {
+    setViewingContractId(null);
+    setViewingContract(null);
+    setActiveTab("my-contracts");
+    if (modalPushedRef.current && typeof window !== "undefined") {
+      modalPushedRef.current = false;
+      try {
+        window.history.replaceState(null, "", window.location.pathname);
+      } catch (err) {
+        console.error("replaceState error:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (modalPushedRef.current) {
+        modalPushedRef.current = false;
+        setViewingContractId(null);
+        setViewingContract(null);
+        setActiveTab("my-contracts");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    const handleResetView = () => {
+      setViewingContractId(null);
+      setViewingContract(null);
+      setActiveTab("overview");
+    };
+
+    window.addEventListener("dashboard-reset-view", handleResetView);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("dashboard-reset-view", handleResetView);
+    };
+  }, []);
+
   useEffect(() => {
     if (viewingContractId) {
       fetchContractDetails(viewingContractId);
@@ -777,23 +833,45 @@ export default function BuyerDashboard() {
   const requirementMet = requiredArea > 0 && selectedArea >= requiredArea;
   const excessArea = selectedArea > requiredArea ? selectedArea - requiredArea : 0;
 
+  // Active crop demands derived from state
+  const activeDemandsCount = demands.filter(d => d.status === "ACTIVE").length;
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Navigation Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brandy/30 pb-4">
-        <div>
-          <h1 className="text-3xl font-bold">Buyer Dashboard</h1>
-          <p className="text-kombu/70 mt-2">
-            Procure crops, establish contract requirements, and discover available farm lands.
-          </p>
+    <div className="min-h-screen w-full bg-[#F6F8F3] text-[#17251B] px-4 sm:px-6 lg:px-8 xl:px-10 py-8 space-y-8 animate-in fade-in duration-500">
+      {/* SaaS Dashboard Header */}
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8E3] pb-6">
+          <div>
+            <span className="text-xs font-bold text-[#166534] tracking-wider uppercase bg-[#ECFDF3] px-3 py-1 rounded-full inline-block mb-2 border border-[#22C55E]/30">
+              Agricultural Procurement SaaS
+            </span>
+            <h1 className="text-3xl font-extrabold text-[#17251B] tracking-tight">Buyer Dashboard</h1>
+            <p className="text-[#647067] text-sm mt-1">
+              Procure crops, establish contract requirements, and discover available farm lands.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setActiveTab("create-demand");
+                setCreateStep(1);
+                resetForm();
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white text-sm font-bold rounded-xl transition-all shadow-sm hover:shadow cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Create Demand
+            </button>
+          </div>
         </div>
-        <div className="flex bg-brandy/10 p-1.5 rounded-xl border border-brandy/20 select-none">
+
+        {/* Full-width Header Navigation Bar */}
+        <div className="flex items-center gap-1 border-b border-[#E2E8E3] overflow-x-auto scrollbar-none pb-1">
           <button
             onClick={() => setActiveTab("overview")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+            className={`px-5 py-3 text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "overview"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
+                ? "text-[#166534] border-b-2 border-[#166534] font-bold"
+                : "text-[#647067] hover:text-[#17251B] hover:bg-white/50 rounded-t-lg"
             }`}
           >
             Overview
@@ -804,20 +882,20 @@ export default function BuyerDashboard() {
               setCreateStep(1);
               resetForm();
             }}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+            className={`px-5 py-3 text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "create-demand"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
+                ? "text-[#166534] border-b-2 border-[#166534] font-bold"
+                : "text-[#647067] hover:text-[#17251B] hover:bg-white/50 rounded-t-lg"
             }`}
           >
             Create Demand
           </button>
           <button
             onClick={() => setActiveTab("my-demands")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+            className={`px-5 py-3 text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "my-demands"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
+                ? "text-[#166534] border-b-2 border-[#166534] font-bold"
+                : "text-[#647067] hover:text-[#17251B] hover:bg-white/50 rounded-t-lg"
             }`}
           >
             My Demands
@@ -828,20 +906,20 @@ export default function BuyerDashboard() {
               setDiscoveredLands([]);
               setInspectLand(null);
             }}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+            className={`px-5 py-3 text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "discover-land"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
+                ? "text-[#166534] border-b-2 border-[#166534] font-bold"
+                : "text-[#647067] hover:text-[#17251B] hover:bg-white/50 rounded-t-lg"
             }`}
           >
             Discover Land
           </button>
           <button
             onClick={() => setActiveTab("my-contracts")}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+            className={`px-5 py-3 text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "my-contracts"
-                ? "bg-pine text-brandy shadow-md"
-                : "text-kombu/80 hover:text-pine hover:bg-brandy/25"
+                ? "text-[#166534] border-b-2 border-[#166534] font-bold"
+                : "text-[#647067] hover:text-[#17251B] hover:bg-white/50 rounded-t-lg"
             }`}
           >
             My Contracts
@@ -851,65 +929,115 @@ export default function BuyerDashboard() {
 
       {/* 1. OVERVIEW TAB */}
       {activeTab === "overview" && (
-        <div className="space-y-8 animate-in fade-in duration-300">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <p className="text-sm font-medium text-kombu/70">Total Contracts</p>
-              <p className="text-3xl font-bold mt-2">24</p>
+        <div className="space-y-8 animate-in fade-in duration-300 w-full">
+          {/* Full-width 4 KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-[#647067] uppercase tracking-wider">Total Contracts</p>
+                <div className="p-2 bg-[#ECFDF3] rounded-xl text-[#166534]">
+                  <FileText className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-extrabold text-[#17251B] mt-3">{contracts.length > 0 ? contracts.length : "24"}</p>
+              <p className="text-xs text-[#647067] mt-1 font-medium">Agreement Portfolio</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <p className="text-sm font-medium text-kombu/70">Active Value</p>
-              <p className="text-3xl font-bold mt-2">₹42.5M</p>
+
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-[#647067] uppercase tracking-wider">Active Value</p>
+                <div className="p-2 bg-[#ECFDF3] rounded-xl text-[#166534]">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-extrabold text-[#17251B] mt-3">₹42.5M</p>
+              <p className="text-xs text-[#647067] mt-1 font-medium">Estimated Payout Total (Demo)</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm">
-              <p className="text-sm font-medium text-kombu/70">At Risk</p>
-              <p className="text-3xl font-bold mt-2 text-copper">3</p>
+
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-[#647067] uppercase tracking-wider">At Risk</p>
+                <div className="p-2 bg-[#FEF3C7] rounded-xl text-[#F59E0B]">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-extrabold text-[#DC2626] mt-3">3</p>
+              <p className="text-xs text-[#647067] mt-1 font-medium">Contracts Needing Review (Demo)</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-[#647067] uppercase tracking-wider">Active Demands</p>
+                <div className="p-2 bg-[#ECFDF3] rounded-xl text-[#166534]">
+                  <Sprout className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-extrabold text-[#166534] mt-3">{activeDemandsCount}</p>
+              <p className="text-xs text-[#647067] mt-1 font-medium">Live Procurement Requisitions</p>
             </div>
           </div>
 
-          <div>
-            <h2 className="text-xl font-bold mb-4">Contracted Landlords</h2>
+          {/* Contracted Landlords Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[#17251B]">Contracted Landlords</h2>
+                <p className="text-xs text-[#647067] mt-0.5">Summary of active grower partnerships and field progress.</p>
+              </div>
+              <span className="text-xs font-semibold text-[#647067] bg-white border border-[#E2E8E3] px-3 py-1 rounded-lg">
+                Demo Records
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 gap-4">
               {landlords.map((landlord) => (
                 <div
                   key={landlord.id}
-                  className="bg-white p-6 rounded-2xl border border-brandy/40 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-6"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="bg-kombu/10 p-3 rounded-full text-kombu">
+                    <div className="bg-[#ECFDF3] p-3 rounded-xl text-[#166534] shrink-0">
                       <FileText className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold">{landlord.name}</h3>
-                      <div className="flex items-center text-sm text-kombu/70 mt-1 gap-3">
-                        <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {landlord.location}</span>
-                        <span className="w-1 h-1 bg-brandy rounded-full"></span>
-                        <span>{landlord.crop}</span>
-                        <span className="w-1 h-1 bg-brandy rounded-full"></span>
-                        <span className="font-medium text-pine">{landlord.contractAmount}</span>
+                      <h3 className="text-lg font-bold text-[#17251B]">{landlord.name}</h3>
+                      <div className="flex flex-wrap items-center text-xs text-[#647067] mt-1 gap-3 font-medium">
+                        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-[#166534]" /> {landlord.location}</span>
+                        <span className="w-1 h-1 bg-[#647067] rounded-full"></span>
+                        <span className="flex items-center gap-1"><Sprout className="w-3.5 h-3.5 text-[#22C55E]" /> {landlord.crop}</span>
+                        <span className="w-1 h-1 bg-[#647067] rounded-full"></span>
+                        <span className="font-bold text-[#166534]">{landlord.contractAmount}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col md:items-end gap-2">
-                    <div className="flex items-center gap-2">
-                      {landlord.status === "On Track" && <CheckCircle2 className="w-5 h-5 text-dingley" />}
-                      {landlord.status === "Needs Review" && <AlertTriangle className="w-5 h-5 text-copper" />}
-                      {landlord.status === "Completed" && <CheckCircle2 className="w-5 h-5 text-kombu" />}
-                      <span className={`font-medium ${
-                        landlord.status === "On Track" ? "text-dingley" :
-                        landlord.status === "Needs Review" ? "text-copper" :
-                        "text-kombu"
-                      }`}>
-                        {landlord.status}
-                      </span>
+                  <div className="flex flex-col md:items-end gap-3 shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        {landlord.status === "On Track" && <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />}
+                        {landlord.status === "Needs Review" && <AlertTriangle className="w-4 h-4 text-[#F59E0B]" />}
+                        {landlord.status === "Completed" && <CheckCircle2 className="w-4 h-4 text-[#166534]" />}
+                        <span className={`text-xs font-bold ${
+                          landlord.status === "On Track" ? "text-[#166534]" :
+                          landlord.status === "Needs Review" ? "text-[#F59E0B]" :
+                          "text-[#17251B]"
+                        }`}>
+                          {landlord.status}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab("my-contracts")}
+                        className="px-3 py-1.5 bg-[#F6F8F3] hover:bg-[#ECFDF3] border border-[#E2E8E3] text-[#166534] font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                      >
+                        View Contract
+                      </button>
                     </div>
-                    <div className="w-full md:w-48 bg-brandy/20 rounded-full h-2.5 mt-1">
+                    <div className="w-full md:w-48 bg-[#F6F8F3] rounded-full h-2.5 overflow-hidden border border-[#E2E8E3]">
                       <div
-                        className={`h-2.5 rounded-full ${
-                          landlord.status === "On Track" ? "bg-dingley" :
-                          landlord.status === "Needs Review" ? "bg-copper" :
-                          "bg-kombu"
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          landlord.status === "On Track" ? "bg-[#22C55E]" :
+                          landlord.status === "Needs Review" ? "bg-[#F59E0B]" :
+                          "bg-[#166534]"
                         }`}
                         style={{ width: `${landlord.progress}%` }}
                       ></div>
@@ -924,59 +1052,67 @@ export default function BuyerDashboard() {
 
       {/* 2. CREATE DEMAND TAB */}
       {activeTab === "create-demand" && (
-        <div className="space-y-6 animate-in fade-in duration-300 max-w-3xl mx-auto">
+        <div className="space-y-6 animate-in fade-in duration-300 w-full">
           {/* STEP 1: Select Category */}
           {createStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-pine text-center sm:text-left">
-                Select Crop Category to Establish Contract Procurement Demand
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <h2 className="text-2xl font-bold text-[#17251B]">
+                  Select Crop Category
+                </h2>
+                <p className="text-xs text-[#647067] mt-1">Choose an agricultural sector to establish a contract procurement demand.</p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <button
                   onClick={() => handleSelectCategory({ id: "crops", name: "Crops", description: "" })}
-                  className="group relative flex flex-col justify-end h-56 rounded-2xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm text-left transition-all cursor-pointer"
+                  className="group relative flex flex-col justify-end h-64 rounded-2xl overflow-hidden border border-[#E2E8E3] hover:border-[#22C55E] shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
                 >
                   <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: "url('/images/categories/crops.jpg')" }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Crops</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed">Cereals, paddy, sugarcane, wheat grains.</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#17251B]/90 via-[#17251B]/40 to-transparent" />
+                  <div className="relative z-10 p-6 text-white">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#22C55E] text-[#17251B] px-2 py-0.5 rounded mb-2 inline-block">Category</span>
+                    <h3 className="text-2xl font-extrabold mb-1">Crops</h3>
+                    <p className="text-xs text-gray-200 leading-relaxed">Cereals, paddy, sugarcane, wheat grains.</p>
                   </div>
                 </button>
 
                 <button
                   onClick={() => handleSelectCategory({ id: "vegetables", name: "Vegetables", description: "" })}
-                  className="group relative flex flex-col justify-end h-56 rounded-2xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm text-left transition-all cursor-pointer"
+                  className="group relative flex flex-col justify-end h-64 rounded-2xl overflow-hidden border border-[#E2E8E3] hover:border-[#22C55E] shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
                 >
                   <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: "url('/images/categories/vegetables.jpg')" }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Vegetables</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed">Potato, tomato, cabbage, bulb crops.</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#17251B]/90 via-[#17251B]/40 to-transparent" />
+                  <div className="relative z-10 p-6 text-white">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#22C55E] text-[#17251B] px-2 py-0.5 rounded mb-2 inline-block">Category</span>
+                    <h3 className="text-2xl font-extrabold mb-1">Vegetables</h3>
+                    <p className="text-xs text-gray-200 leading-relaxed">Potato, tomato, cabbage, bulb crops.</p>
                   </div>
                 </button>
 
                 <button
                   onClick={() => handleSelectCategory({ id: "fruits", name: "Fruits", description: "" })}
-                  className="group relative flex flex-col justify-end h-56 rounded-2xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm text-left transition-all cursor-pointer"
+                  className="group relative flex flex-col justify-end h-64 rounded-2xl overflow-hidden border border-[#E2E8E3] hover:border-[#22C55E] shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
                 >
                   <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: "url('/images/categories/fruits.jpg')" }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Fruits</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed">Mangoes, orchard harvests, apple cultivars.</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#17251B]/90 via-[#17251B]/40 to-transparent" />
+                  <div className="relative z-10 p-6 text-white">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#22C55E] text-[#17251B] px-2 py-0.5 rounded mb-2 inline-block">Category</span>
+                    <h3 className="text-2xl font-extrabold mb-1">Fruits</h3>
+                    <p className="text-xs text-gray-200 leading-relaxed">Mangoes, orchard harvests, apple cultivars.</p>
                   </div>
                 </button>
 
                 <button
                   onClick={() => handleSelectCategory({ id: "flowers", name: "Flowers", description: "" })}
-                  className="group relative flex flex-col justify-end h-56 rounded-2xl overflow-hidden border border-brandy/30 hover:border-dingley shadow-sm text-left transition-all cursor-pointer"
+                  className="group relative flex flex-col justify-end h-64 rounded-2xl overflow-hidden border border-[#E2E8E3] hover:border-[#22C55E] shadow-sm hover:shadow-md text-left transition-all cursor-pointer"
                 >
                   <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: "url('/images/categories/flowers.jpg')" }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-pine/90 via-pine/40 to-transparent" />
-                  <div className="relative z-10 p-6 text-brandy">
-                    <h3 className="text-2xl font-bold text-white mb-1">Flowers</h3>
-                    <p className="text-xs text-brandy/80 leading-relaxed">Floriculture, ornamental seeds, premium roses.</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#17251B]/90 via-[#17251B]/40 to-transparent" />
+                  <div className="relative z-10 p-6 text-white">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#22C55E] text-[#17251B] px-2 py-0.5 rounded mb-2 inline-block">Category</span>
+                    <h3 className="text-2xl font-extrabold mb-1">Flowers</h3>
+                    <p className="text-xs text-gray-200 leading-relaxed">Floriculture, ornamental seeds, premium roses.</p>
                   </div>
                 </button>
               </div>
@@ -985,34 +1121,37 @@ export default function BuyerDashboard() {
 
           {/* STEP 2: Select Crop */}
           {createStep === 2 && (
-            <div className="space-y-6 bg-white p-6 rounded-3xl border border-brandy/30">
-              <div className="flex items-center gap-3 border-b border-brandy/20 pb-4">
-                <button type="button" onClick={() => setCreateStep(1)} className="p-1 rounded-lg hover:bg-brandy/20 transition-colors">
-                  <ArrowRight className="w-5 h-5 rotate-180 text-kombu" />
+            <div className="space-y-6 bg-white p-6 sm:p-8 rounded-2xl border border-[#E2E8E3] shadow-sm">
+              <div className="flex items-center gap-3 border-b border-[#E2E8E3] pb-4">
+                <button type="button" onClick={() => setCreateStep(1)} className="p-2 rounded-lg hover:bg-[#F6F8F3] text-[#647067] hover:text-[#17251B] transition-colors cursor-pointer">
+                  <ArrowRight className="w-5 h-5 rotate-180" />
                 </button>
-                <h2 className="text-xl font-bold text-pine">Select Crop Variety ({selCategory?.name})</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-[#17251B]">Select Crop Variety ({selCategory?.name})</h2>
+                  <p className="text-xs text-[#647067]">Pick a specific crop model for your demand requisition.</p>
+                </div>
               </div>
 
               {loadingCrops ? (
-                <div className="flex flex-col items-center py-10">
-                  <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-                  <p className="text-xs text-kombu/70 mt-2">Loading crops...</p>
+                <div className="flex flex-col items-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#166534]" />
+                  <p className="text-xs text-[#647067] mt-3">Loading available crops...</p>
                 </div>
               ) : crops.length === 0 ? (
-                <p className="text-sm text-kombu/75 italic">No crops found in this category.</p>
+                <p className="text-sm text-[#647067] italic py-8">No crops found in this category.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {crops.map((crop) => (
                     <button
                       key={crop.id}
                       onClick={() => handleSelectCrop(crop)}
-                      className="text-left p-5 bg-brandy/5 hover:bg-brandy/15 border border-brandy/30 hover:border-dingley rounded-2xl transition-all cursor-pointer group"
+                      className="text-left p-5 bg-[#F6F8F3] hover:bg-[#ECFDF3] border border-[#E2E8E3] hover:border-[#22C55E] rounded-xl transition-all cursor-pointer group"
                     >
-                      <h3 className="font-bold text-pine text-base flex items-center gap-1.5">
-                        <Sprout className="w-4 h-4 text-dingley" /> {crop.name}
+                      <h3 className="font-bold text-[#166534] text-base flex items-center gap-2">
+                        <Sprout className="w-4 h-4 text-[#22C55E]" /> {crop.name}
                       </h3>
-                      <p className="text-xs text-kombu/70 mt-2 line-clamp-2">{crop.description || "Specification-backed contract crop."}</p>
-                      <span className="inline-block mt-3 text-xs bg-brandy/25 text-kombu px-2 py-0.5 rounded font-mono font-semibold">
+                      <p className="text-xs text-[#647067] mt-2 line-clamp-2">{crop.description || "Specification-backed contract crop."}</p>
+                      <span className="inline-block mt-3 text-xs bg-white text-[#17251B] border border-[#E2E8E3] px-2.5 py-0.5 rounded-md font-mono font-semibold">
                         Cycle: {crop.durationDays} Days
                       </span>
                     </button>
@@ -1024,8 +1163,8 @@ export default function BuyerDashboard() {
 
           {/* STEP 3: Demand parameters form */}
           {createStep === 3 && (
-            <div className="bg-white p-6 rounded-3xl border border-brandy/30">
-              <div className="flex items-center gap-3 border-b border-brandy/20 pb-4 mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E2E8E3] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 border-b border-[#E2E8E3] pb-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -1036,17 +1175,20 @@ export default function BuyerDashboard() {
                       setCreateStep(2);
                     }
                   }}
-                  className="p-1 rounded-lg hover:bg-brandy/20 transition-colors"
+                  className="p-2 rounded-lg hover:bg-[#F6F8F3] text-[#647067] hover:text-[#17251B] transition-colors cursor-pointer"
                 >
-                  <ArrowRight className="w-5 h-5 rotate-180 text-kombu" />
+                  <ArrowRight className="w-5 h-5 rotate-180" />
                 </button>
-                <h2 className="text-xl font-bold text-pine">
-                  {editingDemand ? "Edit Demand Parameters" : `Enter Demand Specs: ${selCrop?.name}`}
-                </h2>
+                <div>
+                  <h2 className="text-xl font-bold text-[#17251B]">
+                    {editingDemand ? "Edit Demand Parameters" : `Enter Demand Specs: ${selCrop?.name}`}
+                  </h2>
+                  <p className="text-xs text-[#647067]">Define exact volume, land requirement, and target geographic region.</p>
+                </div>
               </div>
 
               {formError && (
-                <div className="mb-6 p-3.5 bg-copper/10 border border-copper/30 text-copper rounded-xl text-sm font-semibold flex items-center gap-2">
+                <div className="p-4 bg-[#FEE2E2] border border-[#DC2626]/30 text-[#DC2626] rounded-xl text-sm font-semibold flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 shrink-0" />
                   <span>{formError}</span>
                 </div>
@@ -1057,7 +1199,7 @@ export default function BuyerDashboard() {
                   {/* Quantity and Unit */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="col-span-2">
-                      <label className="block text-sm font-semibold text-pine mb-2">Required Quantity</label>
+                      <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Required Quantity</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1065,15 +1207,15 @@ export default function BuyerDashboard() {
                         placeholder="e.g. 50"
                         value={reqQuantity}
                         onChange={(e) => setReqQuantity(e.target.value)}
-                        className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
+                        className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none transition-all text-[#17251B] font-medium text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-pine mb-2">Unit</label>
+                      <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Unit</label>
                       <select
                         value={qtyUnit}
                         onChange={(e) => setQtyUnit(e.target.value as any)}
-                        className="w-full px-3 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
+                        className="w-full px-3 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none transition-all text-[#17251B] font-medium text-sm"
                       >
                         <option value="TONNE">Tonnes</option>
                         <option value="QUINTAL">Quintals</option>
@@ -1084,14 +1226,14 @@ export default function BuyerDashboard() {
 
                   {/* Required Land Area */}
                   <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Required Land Area (Acres)</label>
+                    <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Required Land Area (Acres)</label>
                     <input
                       type="number"
                       step="0.1"
                       placeholder="e.g. 15.0"
                       value={reqLandArea}
                       onChange={(e) => setReqLandArea(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
+                      className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none transition-all text-[#17251B] font-medium text-sm"
                     />
                   </div>
                 </div>
@@ -1099,106 +1241,108 @@ export default function BuyerDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* Preferred State */}
                   <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Preferred State</label>
+                    <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Preferred State</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Punjab"
                       value={prefState}
                       onChange={(e) => setPrefState(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
+                      className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none transition-all text-[#17251B] font-medium text-sm"
                     />
                   </div>
                   {/* Preferred District */}
                   <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Preferred District (Optional)</label>
+                    <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Preferred District (Optional)</label>
                     <input
                       type="text"
                       placeholder="e.g. Jalandhar"
                       value={prefDistrict}
                       onChange={(e) => setPrefDistrict(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
+                      className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none transition-all text-[#17251B] font-medium text-sm"
                     />
                   </div>
                 </div>
 
-                {/* Optional Geolocation matching inputs */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-brandy/5 p-4 rounded-2xl border border-brandy/20">
-                  <div className="sm:col-span-3 text-xs text-kombu/70 font-semibold uppercase tracking-wider">
+                {/* Geolocation matching inputs */}
+                <div className="bg-[#F6F8F3] p-5 rounded-xl border border-[#E2E8E3] space-y-4">
+                  <div className="text-xs text-[#647067] font-bold uppercase tracking-wider">
                     Geographic Center & Proximity Search (Optional)
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-pine mb-1">Center Latitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      placeholder="e.g. 31.02"
-                      value={prefLat}
-                      onChange={(e) => setPrefLat(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-brandy rounded-xl outline-none text-xs font-mono text-pine"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-pine mb-1">Center Longitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      placeholder="e.g. 75.39"
-                      value={prefLng}
-                      onChange={(e) => setPrefLng(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-brandy rounded-xl outline-none text-xs font-mono text-pine"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-pine mb-1">Search Radius (Km)</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 50"
-                      value={searchRadius}
-                      onChange={(e) => setSearchRadius(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-brandy rounded-xl outline-none text-xs text-pine"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#17251B] mb-1">Center Latitude</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        placeholder="e.g. 31.02"
+                        value={prefLat}
+                        onChange={(e) => setPrefLat(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E2E8E3] rounded-lg outline-none text-xs font-mono text-[#17251B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#17251B] mb-1">Center Longitude</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        placeholder="e.g. 75.39"
+                        value={prefLng}
+                        onChange={(e) => setPrefLng(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E2E8E3] rounded-lg outline-none text-xs font-mono text-[#17251B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#17251B] mb-1">Search Radius (Km)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 50"
+                        value={searchRadius}
+                        onChange={(e) => setSearchRadius(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E2E8E3] rounded-lg outline-none text-xs text-[#17251B]"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* Start Date */}
                   <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Preferred Start Date</label>
+                    <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Preferred Start Date</label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                      className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none text-[#17251B] text-sm"
                     />
                   </div>
                   {/* Harvest Date */}
                   <div>
-                    <label className="block text-sm font-semibold text-pine mb-2">Expected Harvest Date</label>
+                    <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Expected Harvest Date</label>
                     <input
                       type="date"
                       value={harvestDate}
                       onChange={(e) => setHarvestDate(e.target.value)}
-                      className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                      className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none text-[#17251B] text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-semibold text-pine mb-2">Additional Specifications / Quality Notes</label>
+                  <label className="block text-xs font-bold text-[#17251B] uppercase tracking-wider mb-2">Additional Specifications / Quality Notes</label>
                   <textarea
                     placeholder="e.g. Seeking high-gluten wheat grains with organic fertilizer logs."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-2 focus:ring-dingley/20 rounded-xl outline-none transition-all text-pine font-medium"
+                    className="w-full px-4 py-3 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none transition-all text-[#17251B] font-medium text-sm"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-2 bg-pine hover:bg-kombu text-brandy py-3.5 rounded-xl font-bold transition-all shadow-md"
+                  className="w-full flex items-center justify-center gap-2 bg-[#166534] hover:bg-[#14532d] text-white py-3.5 rounded-xl font-bold transition-all shadow-sm cursor-pointer text-sm"
                 >
                   Review Demand Summary <ArrowRight className="w-4 h-4" />
                 </button>
@@ -1208,57 +1352,60 @@ export default function BuyerDashboard() {
 
           {/* STEP 4: Review Summary page */}
           {createStep === 4 && (
-            <div className="bg-white p-6 rounded-3xl border border-brandy/30 space-y-6">
-              <div className="flex items-center gap-3 border-b border-brandy/20 pb-4">
-                <button type="button" onClick={() => setCreateStep(3)} className="p-1 rounded-lg hover:bg-brandy/20 transition-colors">
-                  <ArrowRight className="w-5 h-5 rotate-180 text-kombu" />
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E2E8E3] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 border-b border-[#E2E8E3] pb-4">
+                <button type="button" onClick={() => setCreateStep(3)} className="p-2 rounded-lg hover:bg-[#F6F8F3] text-[#647067] hover:text-[#17251B] transition-colors cursor-pointer">
+                  <ArrowRight className="w-5 h-5 rotate-180" />
                 </button>
-                <h2 className="text-xl font-bold text-pine">Confirm Demand parameters</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-[#17251B]">Confirm Demand Parameters</h2>
+                  <p className="text-xs text-[#647067]">Verify specification targets before publishing to the landowner network.</p>
+                </div>
               </div>
 
-              <div className="space-y-4 bg-brandy/5 p-6 rounded-2xl border border-brandy/20 text-sm">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#F6F8F3] p-6 rounded-xl border border-[#E2E8E3] text-sm space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                   <div>
-                    <span className="text-xs text-kombu/60 block">Target Crop</span>
-                    <span className="font-bold text-pine text-base">{selCrop?.name}</span>
+                    <span className="text-xs text-[#647067] font-semibold block uppercase">Target Crop</span>
+                    <span className="font-bold text-[#166534] text-base">{selCrop?.name}</span>
                   </div>
                   <div>
-                    <span className="text-xs text-kombu/60 block">Total Volume Required</span>
-                    <span className="font-bold text-pine text-base">{reqQuantity} {qtyUnit}s</span>
+                    <span className="text-xs text-[#647067] font-semibold block uppercase">Total Volume Required</span>
+                    <span className="font-bold text-[#17251B] text-base">{reqQuantity} {qtyUnit}s</span>
                   </div>
                   <div>
-                    <span className="text-xs text-kombu/60 block">Preferred Area Range</span>
-                    <span className="font-bold text-pine text-base">{reqLandArea ? `${reqLandArea} Acres` : "No specified target"}</span>
+                    <span className="text-xs text-[#647067] font-semibold block uppercase">Preferred Area Range</span>
+                    <span className="font-bold text-[#17251B] text-base">{reqLandArea ? `${reqLandArea} Acres` : "No specified target"}</span>
                   </div>
                   <div>
-                    <span className="text-xs text-kombu/60 block">Location Focus</span>
-                    <span className="font-bold text-pine text-base">
+                    <span className="text-xs text-[#647067] font-semibold block uppercase">Location Focus</span>
+                    <span className="font-bold text-[#17251B] text-base">
                       {prefState}{prefDistrict ? `, ${prefDistrict}` : ""}
                     </span>
                   </div>
                   {prefLat && prefLng && (
-                    <div className="col-span-2">
-                      <span className="text-xs text-kombu/60 block">Center Coordinate Bounds</span>
-                      <span className="font-mono text-xs text-pine font-medium">{prefLat}, {prefLng} {searchRadius ? `(Radius: ${searchRadius} Km)` : ""}</span>
+                    <div className="sm:col-span-2">
+                      <span className="text-xs text-[#647067] font-semibold block uppercase">Center Coordinate Bounds</span>
+                      <span className="font-mono text-xs text-[#17251B] font-medium">{prefLat}, {prefLng} {searchRadius ? `(Radius: ${searchRadius} Km)` : ""}</span>
                     </div>
                   )}
                   {startDate && (
                     <div>
-                      <span className="text-xs text-kombu/60 block">Start Date</span>
-                      <span className="font-semibold text-pine">{startDate}</span>
+                      <span className="text-xs text-[#647067] font-semibold block uppercase">Start Date</span>
+                      <span className="font-semibold text-[#17251B]">{startDate}</span>
                     </div>
                   )}
                   {harvestDate && (
                     <div>
-                      <span className="text-xs text-kombu/60 block">Harvest Date</span>
-                      <span className="font-semibold text-pine">{harvestDate}</span>
+                      <span className="text-xs text-[#647067] font-semibold block uppercase">Harvest Date</span>
+                      <span className="font-semibold text-[#17251B]">{harvestDate}</span>
                     </div>
                   )}
                 </div>
                 {notes && (
-                  <div className="border-t border-brandy/20 pt-3 mt-3">
-                    <span className="text-xs text-kombu/60 block">Contract Requirements Notes</span>
-                    <p className="text-kombu/80 italic mt-1 font-medium">"{notes}"</p>
+                  <div className="border-t border-[#E2E8E3] pt-3 mt-3">
+                    <span className="text-xs text-[#647067] font-semibold block uppercase">Contract Requirements Notes</span>
+                    <p className="text-[#17251B] italic mt-1 font-medium text-xs">"{notes}"</p>
                   </div>
                 )}
               </div>
@@ -1267,7 +1414,7 @@ export default function BuyerDashboard() {
                 <button
                   type="button"
                   onClick={() => setCreateStep(3)}
-                  className="px-6 py-3 border border-brandy text-pine text-sm font-bold rounded-xl hover:bg-brandy/10 transition-all"
+                  className="px-6 py-3 border border-[#E2E8E3] text-[#17251B] text-xs font-bold rounded-xl hover:bg-[#F6F8F3] transition-all cursor-pointer"
                 >
                   Change Details
                 </button>
@@ -1275,7 +1422,7 @@ export default function BuyerDashboard() {
                   type="button"
                   onClick={handleSaveDemand}
                   disabled={savingDemand}
-                  className="flex items-center gap-2 px-6 py-3 bg-pine hover:bg-kombu text-brandy text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-3 bg-[#166534] hover:bg-[#14532d] text-white text-xs font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {savingDemand ? (
                     <>
@@ -1291,14 +1438,14 @@ export default function BuyerDashboard() {
 
           {/* STEP 5: Success Feedback page */}
           {createStep === 5 && (
-            <div className="bg-white p-8 rounded-3xl border border-brandy/30 text-center space-y-6 shadow-sm">
-              <div className="w-16 h-16 bg-dingley/20 text-dingley rounded-full flex items-center justify-center mx-auto">
+            <div className="bg-white p-8 sm:p-12 rounded-2xl border border-[#E2E8E3] text-center space-y-6 shadow-sm max-w-2xl mx-auto my-8">
+              <div className="w-16 h-16 bg-[#ECFDF3] text-[#22C55E] rounded-full flex items-center justify-center mx-auto">
                 <CheckCircle className="w-10 h-10" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-pine">Demand Published successfully</h2>
-                <p className="text-sm text-kombu/70 mt-2 max-w-sm mx-auto">
-                  Your crop requirements has been saved. Landowners matching your criteria will now be discovered.
+                <h2 className="text-2xl font-bold text-[#17251B]">Demand Published Successfully</h2>
+                <p className="text-xs text-[#647067] mt-2 max-w-md mx-auto">
+                  Your crop requirement specification has been broadcast to our landowner network. You can now discover matching farm parcels.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
@@ -1307,13 +1454,12 @@ export default function BuyerDashboard() {
                     setActiveTab("my-demands");
                     resetForm();
                   }}
-                  className="w-full sm:w-auto px-6 py-3 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10 transition-colors"
+                  className="w-full sm:w-auto px-6 py-3 border border-[#E2E8E3] text-[#17251B] text-xs font-bold rounded-xl hover:bg-[#F6F8F3] transition-colors cursor-pointer"
                 >
                   Go to My Demands
                 </button>
                 <button
                   onClick={() => {
-                    // Try to trigger discovery for the last published demand
                     const latest = demands[0];
                     if (latest) {
                       handleTriggerDiscovery(latest.id);
@@ -1321,7 +1467,7 @@ export default function BuyerDashboard() {
                       setActiveTab("discover-land");
                     }
                   }}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl transition-all shadow-md"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#166534] hover:bg-[#14532d] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
                 >
                   Discover Available Land <Compass className="w-4 h-4" />
                 </button>
@@ -1333,105 +1479,108 @@ export default function BuyerDashboard() {
 
       {/* 3. MY DEMANDS TAB */}
       {activeTab === "my-demands" && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-pine">Your Published Procurement Demands ({demands.length})</h2>
+        <div className="space-y-6 animate-in fade-in duration-300 w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-[#17251B]">Published Procurement Demands</h2>
+              <p className="text-xs text-[#647067] mt-0.5">Manage live requisitions ({demands.length} total active and archived demands)</p>
+            </div>
             <button
               onClick={() => { setActiveTab("create-demand"); setCreateStep(1); resetForm(); }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-pine hover:bg-kombu text-brandy text-sm font-bold rounded-xl transition-all shadow-md cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" /> Create Crop Demand
             </button>
           </div>
 
           {loadingDemands ? (
-            <div className="flex flex-col items-center py-20 bg-white rounded-3xl border border-brandy/30">
-              <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-              <p className="text-xs text-kombu/70 mt-3">Loading demands...</p>
+            <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-[#E2E8E3]">
+              <Loader2 className="w-8 h-8 animate-spin text-[#166534]" />
+              <p className="text-xs text-[#647067] mt-3">Loading demands...</p>
             </div>
           ) : demands.length === 0 ? (
-            <div className="text-center p-12 bg-white rounded-3xl border border-brandy/30 max-w-xl mx-auto mt-8">
-              <Compass className="w-12 h-12 text-brandy mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-pine mb-2">No Demands Found</h3>
-              <p className="text-xs text-kombu/70 mb-6">
-                Publish crop demand specifications to start matching with registered, available lands.
+            <div className="text-center p-12 bg-white rounded-2xl border border-[#E2E8E3] max-w-xl mx-auto my-8">
+              <Compass className="w-12 h-12 text-[#166534] mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-[#17251B] mb-2">No Demands Found</h3>
+              <p className="text-xs text-[#647067] mb-6">
+                Publish crop demand specifications to start matching with registered available land parcels.
               </p>
               <button
                 onClick={() => { setActiveTab("create-demand"); setCreateStep(1); resetForm(); }}
-                className="px-6 py-3 bg-pine text-brandy font-bold rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer"
+                className="px-6 py-3 bg-[#166534] text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
               >
                 Create First Demand
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {demands.map((demand) => (
                 <div
                   key={demand.id}
-                  className="bg-white rounded-2xl border border-brandy/40 overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
+                  className="bg-white rounded-2xl border border-[#E2E8E3] overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all"
                 >
-                  <div className="bg-gradient-to-r from-pine/10 to-brandy/10 p-5 border-b border-brandy/20 flex justify-between items-start">
+                  <div className="bg-[#F6F8F3] p-5 border-b border-[#E2E8E3] flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-lg text-pine flex items-center gap-1.5">
-                        <Sprout className="w-4 h-4 text-dingley" /> {demand.crop?.name}
+                      <h3 className="font-bold text-lg text-[#17251B] flex items-center gap-2">
+                        <Sprout className="w-4 h-4 text-[#22C55E]" /> {demand.crop?.name}
                       </h3>
-                      <span className="text-xs font-mono font-medium text-kombu/60">
+                      <span className="text-xs font-mono font-medium text-[#647067]">
                         Category: {demand.crop?.category?.name || "Crops"}
                       </span>
                     </div>
-                    <span className={`px-2.5 py-0.5 rounded text-xs font-bold ${
-                      demand.status === "ACTIVE" ? "bg-dingley/20 text-dingley" :
-                      demand.status === "PAUSED" ? "bg-copper/20 text-copper" :
-                      demand.status === "CLOSED" ? "bg-kombu/25 text-kombu" :
-                      "bg-brandy/30 text-kombu/60"
+                    <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${
+                      demand.status === "ACTIVE" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                      demand.status === "PAUSED" ? "bg-[#FEF3C7] text-[#F59E0B] border border-[#F59E0B]/30" :
+                      demand.status === "CLOSED" ? "bg-[#FEE2E2] text-[#DC2626] border border-[#DC2626]/30" :
+                      "bg-gray-100 text-gray-600"
                     }`}>
                       {demand.status}
                     </span>
                   </div>
 
                   <div className="p-5 space-y-4 flex-grow">
-                    <div className="grid grid-cols-2 gap-4 text-xs bg-brandy/5 p-4 rounded-xl border border-brandy/25">
+                    <div className="grid grid-cols-2 gap-4 text-xs bg-[#F6F8F3] p-4 rounded-xl border border-[#E2E8E3]">
                       <div>
-                        <span className="text-kombu/60 uppercase">Quantity</span>
-                        <p className="font-bold text-pine text-sm mt-0.5">
+                        <span className="text-[#647067] font-semibold uppercase">Quantity</span>
+                        <p className="font-bold text-[#17251B] text-sm mt-0.5">
                           {demand.requiredQuantity} {demand.quantityUnit}s
                         </p>
                       </div>
                       <div>
-                        <span className="text-kombu/60 uppercase">Target Land Size</span>
-                        <p className="font-bold text-pine text-sm mt-0.5">
+                        <span className="text-[#647067] font-semibold uppercase">Target Land Size</span>
+                        <p className="font-bold text-[#17251B] text-sm mt-0.5">
                           {demand.requiredLandArea ? `${demand.requiredLandArea} Acres` : "No preference"}
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-kombu/60 uppercase">Preferred Location</span>
-                        <p className="font-bold text-pine text-sm mt-0.5">
+                        <span className="text-[#647067] font-semibold uppercase">Preferred Location</span>
+                        <p className="font-bold text-[#17251B] text-sm mt-0.5">
                           {demand.preferredState}{demand.preferredDistrict ? `, ${demand.preferredDistrict}` : ""}
                         </p>
                       </div>
                     </div>
 
                     {demand.notes && (
-                      <p className="text-xs text-kombu/70 leading-relaxed italic border-l-2 border-brandy/60 pl-3">
+                      <p className="text-xs text-[#647067] leading-relaxed italic border-l-2 border-[#166534] pl-3">
                         "{demand.notes}"
                       </p>
                     )}
                   </div>
 
                   {/* Actions bar */}
-                  <div className="bg-brandy/10 px-5 py-4 border-t border-brandy/25 flex flex-wrap items-center justify-between gap-3">
+                  <div className="bg-[#F6F8F3] px-5 py-4 border-t border-[#E2E8E3] flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       {demand.status === "ACTIVE" ? (
                         <button
                           onClick={() => handleToggleStatus(demand, "PAUSED")}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-copper/30 hover:bg-copper/5 text-copper text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#F59E0B]/40 hover:bg-[#FEF3C7] text-[#F59E0B] text-xs font-bold rounded-lg cursor-pointer transition-colors"
                         >
                           <Pause className="w-3.5 h-3.5" /> Pause
                         </button>
                       ) : demand.status === "PAUSED" || demand.status === "DRAFT" ? (
                         <button
                           onClick={() => handleToggleStatus(demand, "ACTIVE")}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-dingley hover:bg-dingley/90 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-[#22C55E] hover:bg-[#166534] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
                         >
                           <Play className="w-3.5 h-3.5" /> Activate
                         </button>
@@ -1440,7 +1589,7 @@ export default function BuyerDashboard() {
                       {demand.status !== "CLOSED" && (
                         <button
                           onClick={() => handleToggleStatus(demand, "CLOSED")}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-kombu/30 hover:bg-brandy/20 text-kombu text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#E2E8E3] hover:bg-[#FEE2E2] text-[#DC2626] text-xs font-bold rounded-lg cursor-pointer transition-colors"
                         >
                           <XCircle className="w-3.5 h-3.5" /> Close
                         </button>
@@ -1451,16 +1600,16 @@ export default function BuyerDashboard() {
                       <button
                         onClick={() => handleOpenEdit(demand)}
                         disabled={demand.status === "CLOSED"}
-                        className="text-xs font-bold text-pine hover:text-dingley flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                        className="text-xs font-bold text-[#17251B] hover:text-[#166534] flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" /> Edit
                       </button>
                       <button
                         onClick={() => handleTriggerDiscovery(demand.id)}
                         disabled={demand.status === "CLOSED"}
-                        className="text-xs font-bold text-dingley hover:text-pine flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                        className="text-xs font-bold text-[#166534] hover:text-[#14532d] flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                       >
-                        <Compass className="w-3.5 h-3.5" /> Discover Land
+                        <Compass className="w-3.5 h-3.5 text-[#22C55E]" /> Discover Land
                       </button>
                     </div>
                   </div>
@@ -1473,19 +1622,19 @@ export default function BuyerDashboard() {
 
       {/* 4. DISCOVER LAND TAB */}
       {activeTab === "discover-land" && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="bg-white p-6 rounded-3xl border border-brandy/30 space-y-4 max-w-xl mx-auto shadow-sm">
-            <h3 className="font-bold text-pine text-lg flex items-center gap-2">
-              <Compass className="w-5 h-5 text-dingley animate-pulse" /> Available Land Search Engine
+        <div className="space-y-6 animate-in fade-in duration-300 w-full">
+          <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] space-y-4 shadow-sm">
+            <h3 className="font-bold text-[#17251B] text-lg flex items-center gap-2">
+              <Compass className="w-5 h-5 text-[#22C55E] animate-pulse" /> Available Land Search Engine
             </h3>
-            <p className="text-xs text-kombu/70">
-              Select one of your crop demands to automatically match with registered available landowner plots.
+            <p className="text-xs text-[#647067]">
+              Select one of your active crop demands to automatically match with registered available landowner plots.
             </p>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
               <select
                 value={selectedDemandId}
                 onChange={(e) => setSelectedDemandId(e.target.value)}
-                className="flex-1 px-3 py-2 bg-brandy/5 border border-brandy rounded-xl outline-none text-sm text-pine font-medium"
+                className="flex-1 px-4 py-2.5 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl outline-none text-sm text-[#17251B] font-medium"
               >
                 <option value="">-- Choose Active Crop Demand --</option>
                 {demands.filter(d => d.status === "ACTIVE").map(d => (
@@ -1497,72 +1646,72 @@ export default function BuyerDashboard() {
               <button
                 onClick={() => fetchMatchingLands(selectedDemandId)}
                 disabled={!selectedDemandId || loadingDiscovery}
-                className="px-5 py-2 bg-pine hover:bg-kombu text-brandy rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="px-6 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 Find Available Land
               </button>
             </div>
             {discoveryError && (
-              <p className="text-xs text-copper font-semibold">{discoveryError}</p>
+              <p className="text-xs text-[#DC2626] font-semibold">{discoveryError}</p>
             )}
           </div>
 
           {loadingDiscovery ? (
-            <div className="flex flex-col items-center py-20 bg-white rounded-3xl border border-brandy/30">
-              <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-              <p className="text-xs text-kombu/70 mt-3">Searching registries...</p>
+            <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-[#E2E8E3]">
+              <Loader2 className="w-8 h-8 animate-spin text-[#166534]" />
+              <p className="text-xs text-[#647067] mt-3">Searching registries for matching lands...</p>
             </div>
           ) : discoveredLands.length === 0 ? (
-            <div className="h-44 border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-8 bg-brandy/5 text-kombu/60 max-w-xl mx-auto">
-              <Compass className="w-10 h-10 mb-2 text-brandy" />
-              <h4 className="font-bold text-pine text-base mb-1">No Matches Discovered</h4>
+            <div className="h-48 border border-dashed border-[#E2E8E3] rounded-2xl flex flex-col items-center justify-center text-center p-8 bg-white text-[#647067]">
+              <Compass className="w-10 h-10 mb-2 text-[#166534]" />
+              <h4 className="font-bold text-[#17251B] text-base mb-1">No Matches Discovered</h4>
               <p className="text-xs max-w-xs">Run a search above to discover available plots.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Left Column: Matches list */}
-              <div className="md:col-span-2 space-y-4">
-                <h3 className="text-xs font-bold text-kombu/60 uppercase tracking-wider">Matching Available Plots ({discoveredLands.length})</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Column: Matches list (7 cols) */}
+              <div className="lg:col-span-7 space-y-4">
+                <h3 className="text-xs font-bold text-[#647067] uppercase tracking-wider">Matching Available Plots ({discoveredLands.length})</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {discoveredLands.map((land) => (
                     <div
                       key={land.id}
-                      className="bg-white rounded-2xl border border-brandy/35 overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
+                      className="bg-white rounded-2xl border border-[#E2E8E3] overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all"
                     >
                       <div className="p-5 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-pine text-base">{land.name}</h4>
-                          <div className="flex items-center gap-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <h4 className="font-bold text-[#17251B] text-base">{land.name}</h4>
+                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                             {selectedLands.some((l) => l.id === land.id) && (
-                              <span className="text-[10px] font-bold text-dingley px-2 py-0.5 bg-dingley/20 rounded-md">
+                              <span className="text-[10px] font-bold text-[#166534] px-2 py-0.5 bg-[#ECFDF3] border border-[#22C55E]/30 rounded-md">
                                 Selected
                               </span>
                             )}
-                            <span className="text-xs font-bold text-dingley px-2 py-0.5 bg-dingley/20 rounded-md">
+                            <span className="text-xs font-bold text-[#166534] px-2 py-0.5 bg-[#ECFDF3] border border-[#22C55E]/30 rounded-md">
                               Score: {land.matchScore}%
                             </span>
                           </div>
                         </div>
-                        <p className="text-xs text-kombu/70 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-copper" /> {land.village}, {land.district}, {land.state}
+                        <p className="text-xs text-[#647067] flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-[#166534]" /> {land.village}, {land.district}, {land.state}
                         </p>
-                        <p className="text-sm font-bold text-pine">
+                        <p className="text-sm font-bold text-[#17251B]">
                           Size: {land.size} {land.unit}s
                         </p>
-                        <p className="text-xs text-kombu/60 font-semibold">
+                        <p className="text-xs text-[#647067] font-semibold">
                           Owner: {land.ownerName || "Registered Owner"}
                         </p>
                         {land.distanceKm !== null && (
-                          <span className="inline-block text-[10px] bg-brandy/20 text-kombu px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                          <span className="inline-block text-[10px] bg-[#F6F8F3] text-[#17251B] border border-[#E2E8E3] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
                             Distance: {land.distanceKm} Km
                           </span>
                         )}
                       </div>
 
-                      <div className="bg-brandy/10 px-5 py-3 border-t border-brandy/20 flex justify-between items-center">
+                      <div className="bg-[#F6F8F3] px-5 py-3 border-t border-[#E2E8E3] flex justify-between items-center">
                         <button
                           onClick={() => setInspectLand(land)}
-                          className="flex items-center gap-1 text-xs font-bold text-pine hover:text-dingley cursor-pointer"
+                          className="flex items-center gap-1 text-xs font-bold text-[#17251B] hover:text-[#166534] cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" /> View Details
                         </button>
@@ -1570,14 +1719,14 @@ export default function BuyerDashboard() {
                         {selectedLands.some((l) => l.id === land.id) ? (
                           <button
                             onClick={() => handleRemoveLand(land.id)}
-                            className="flex items-center gap-1 text-xs font-bold text-copper hover:text-copper/85 cursor-pointer"
+                            className="flex items-center gap-1 text-xs font-bold text-[#DC2626] hover:underline cursor-pointer"
                           >
                             Remove Selection
                           </button>
                         ) : (
                           <button
                             onClick={() => handleSelectLand(land)}
-                            className="flex items-center gap-1 text-xs font-bold text-dingley hover:text-pine cursor-pointer"
+                            className="flex items-center gap-1 text-xs font-bold text-[#166534] hover:underline cursor-pointer"
                           >
                             Select Land
                           </button>
@@ -1588,36 +1737,36 @@ export default function BuyerDashboard() {
                 </div>
               </div>
 
-              {/* Right Column: Persistent Selection Summary & Inspector */}
-              <div className="md:col-span-1 space-y-6">
+              {/* Right Column: Persistent Selection Summary & Inspector (5 cols) */}
+              <div className="lg:col-span-5 space-y-6">
                 {/* 1. Selected Land Summary */}
-                <div className="bg-white p-6 rounded-3xl border border-brandy/30 shadow-sm space-y-4">
-                  <h3 className="font-bold text-pine text-lg border-b border-brandy/20 pb-2">
+                <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm space-y-4">
+                  <h3 className="font-bold text-[#17251B] text-lg border-b border-[#E2E8E3] pb-2">
                     Selected Land Summary
                   </h3>
                   
                   {selectedLands.length === 0 ? (
-                    <p className="text-xs text-kombu/70 italic">No land parcels selected yet.</p>
+                    <p className="text-xs text-[#647067] italic">No land parcels selected yet.</p>
                   ) : (
                     <div className="space-y-3">
-                      <div className="max-h-72 overflow-y-auto divide-y divide-brandy/10 pr-1">
+                      <div className="max-h-72 overflow-y-auto divide-y divide-[#E2E8E3] pr-1">
                         {selectedLands.map((land) => {
                           const contract = demandContracts.find((c) => c.landId === land.id);
                           return (
                             <div key={land.id} className="py-3 last:border-b-0 space-y-2">
                               <div className="flex items-start justify-between text-xs">
                                 <div>
-                                  <p className="font-bold text-pine">{land.name}</p>
-                                  <p className="text-[10px] text-kombu/60">
+                                  <p className="font-bold text-[#17251B]">{land.name}</p>
+                                  <p className="text-[10px] text-[#647067]">
                                     {land.village}, {land.district} | Owner: {land.ownerName || "Owner"}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="font-semibold text-pine text-xs">{land.size} {land.unit}s</span>
+                                  <span className="font-semibold text-[#17251B] text-xs">{land.size} {land.unit}s</span>
                                   {!contract && (
                                     <button
                                       onClick={() => handleRemoveLand(land.id)}
-                                      className="p-1 text-copper hover:bg-brandy/20 rounded transition-colors"
+                                      className="p-1 text-[#DC2626] hover:bg-[#FEE2E2] rounded transition-colors"
                                       title="Remove selection"
                                     >
                                       <XCircle className="w-4 h-4" />
@@ -1631,10 +1780,10 @@ export default function BuyerDashboard() {
                                 {contract ? (
                                   <>
                                     <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
-                                      contract.status === "PENDING_APPROVAL" ? "bg-copper/20 text-copper" :
-                                      contract.status === "ACCEPTED" ? "bg-dingley/20 text-dingley" :
-                                      contract.status === "ACTIVE" ? "bg-pine text-white" :
-                                      contract.status === "REJECTED" ? "bg-red-100 text-red-700" :
+                                      contract.status === "PENDING_APPROVAL" ? "bg-[#FEF3C7] text-[#F59E0B]" :
+                                      contract.status === "ACCEPTED" ? "bg-[#ECFDF3] text-[#166534]" :
+                                      contract.status === "ACTIVE" ? "bg-[#166534] text-white" :
+                                      contract.status === "REJECTED" ? "bg-[#FEE2E2] text-[#DC2626]" :
                                       "bg-gray-100 text-gray-500"
                                     }`}>
                                       {contract.status.replace("_", " ")}
@@ -1643,7 +1792,7 @@ export default function BuyerDashboard() {
                                     {contract.status === "PENDING_APPROVAL" && (
                                       <button
                                         onClick={() => handleCancelContract(contract.id)}
-                                        className="text-[10px] font-bold text-copper hover:underline cursor-pointer"
+                                        className="text-[10px] font-bold text-[#DC2626] hover:underline cursor-pointer"
                                       >
                                         Cancel Proposal
                                       </button>
@@ -1662,7 +1811,7 @@ export default function BuyerDashboard() {
                                           }
                                           setPropNotes(contract.notes || "");
                                         }}
-                                        className="text-[10px] font-bold text-dingley hover:underline cursor-pointer"
+                                        className="text-[10px] font-bold text-[#166534] hover:underline cursor-pointer"
                                       >
                                         Propose Again
                                       </button>
@@ -1683,7 +1832,7 @@ export default function BuyerDashboard() {
                                         setPropPrice("");
                                       }
                                     }}
-                                    className="text-[10px] font-bold text-dingley hover:text-pine hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    className="text-[10px] font-bold text-[#166534] hover:underline flex items-center gap-0.5 cursor-pointer"
                                   >
                                     Propose Contract &rarr;
                                   </button>
@@ -1696,33 +1845,33 @@ export default function BuyerDashboard() {
                     </div>
                   )}
 
-                  <div className="border-t border-brandy/20 pt-4 space-y-2 text-xs">
+                  <div className="border-t border-[#E2E8E3] pt-4 space-y-2 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-kombu/70">Required Area:</span>
-                      <span className="font-bold text-pine">{requiredArea ? `${requiredArea} Acres` : "Not specified"}</span>
+                      <span className="text-[#647067]">Required Area:</span>
+                      <span className="font-bold text-[#17251B]">{requiredArea ? `${requiredArea} Acres` : "Not specified"}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-kombu/70">Total Selected:</span>
-                      <span className="font-bold text-pine">{selectedArea.toFixed(1)} Acres</span>
+                      <span className="text-[#647067]">Total Selected:</span>
+                      <span className="font-bold text-[#17251B]">{selectedArea.toFixed(1)} Acres</span>
                     </div>
                     
                     {requiredArea > 0 && (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-kombu/70">Remaining Required:</span>
-                          <span className={`font-bold ${remainingArea === 0 ? "text-dingley" : "text-pine"}`}>
+                          <span className="text-[#647067]">Remaining Required:</span>
+                          <span className={`font-bold ${remainingArea === 0 ? "text-[#166534]" : "text-[#17251B]"}`}>
                             {remainingArea.toFixed(1)} Acres
                           </span>
                         </div>
 
                         {requirementMet ? (
-                          <div className="p-2.5 bg-dingley/20 border border-dingley/30 text-dingley rounded-xl font-bold text-center mt-2 flex items-center justify-center gap-1.5">
-                            <CheckCircle className="w-4 h-4" /> Land Requirement Met
+                          <div className="p-2.5 bg-[#ECFDF3] border border-[#22C55E]/30 text-[#166534] rounded-xl font-bold text-center mt-2 flex items-center justify-center gap-1.5 text-xs">
+                            <CheckCircle className="w-4 h-4 text-[#22C55E]" /> Land Requirement Met
                           </div>
                         ) : null}
 
                         {excessArea > 0 ? (
-                          <div className="p-2 bg-brandy/20 border border-brandy/30 text-pine rounded-xl text-center text-[10px] font-semibold mt-2">
+                          <div className="p-2 bg-[#FEF3C7] border border-[#F59E0B]/30 text-[#17251B] rounded-xl text-center text-[10px] font-semibold mt-2">
                             Selected area exceeds requirement by {excessArea.toFixed(1)} Acres.
                           </div>
                         ) : null}
@@ -1733,55 +1882,55 @@ export default function BuyerDashboard() {
 
                 {/* 2. Discovery Inspector */}
                 {inspectLand ? (
-                  <div className="bg-white p-6 rounded-3xl border border-brandy/30 shadow-sm space-y-6 animate-in fade-in duration-300">
+                  <div className="bg-white p-6 rounded-2xl border border-[#E2E8E3] shadow-sm space-y-5 animate-in fade-in duration-300">
                     <div>
-                      <div className="inline-block px-2.5 py-1 bg-dingley/20 text-dingley text-xs font-bold rounded-md uppercase tracking-wider mb-2">
+                      <span className="inline-block px-2.5 py-0.5 bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 text-xs font-bold rounded-md uppercase tracking-wider mb-2">
                         Discovery Inspector
-                      </div>
-                      <h3 className="text-xl font-bold text-pine">{inspectLand.name}</h3>
-                      <p className="text-xs text-kombu/70 mt-1 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-copper" /> {inspectLand.village}, {inspectLand.district}, {inspectLand.state}
+                      </span>
+                      <h3 className="text-xl font-bold text-[#17251B]">{inspectLand.name}</h3>
+                      <p className="text-xs text-[#647067] mt-1 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-[#166534]" /> {inspectLand.village}, {inspectLand.district}, {inspectLand.state}
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-xs bg-brandy/5 p-4 rounded-xl border border-brandy/20">
+                    <div className="grid grid-cols-2 gap-4 text-xs bg-[#F6F8F3] p-4 rounded-xl border border-[#E2E8E3]">
                       <div>
-                        <span className="text-kombu/60 block uppercase">Area</span>
-                        <span className="font-bold text-pine text-sm">{inspectLand.size} {inspectLand.unit}s</span>
+                        <span className="text-[#647067] block uppercase font-semibold">Area</span>
+                        <span className="font-bold text-[#17251B] text-sm">{inspectLand.size} {inspectLand.unit}s</span>
                       </div>
                       <div>
-                        <span className="text-kombu/60 block uppercase">Status</span>
-                        <span className="font-bold text-dingley text-sm uppercase">{inspectLand.status}</span>
+                        <span className="text-[#647067] block uppercase font-semibold">Status</span>
+                        <span className="font-bold text-[#166534] text-sm uppercase">{inspectLand.status}</span>
                       </div>
                       {inspectLand.distanceKm !== null && (
                         <div className="col-span-2">
-                          <span className="text-kombu/60 block uppercase">Radial Distance</span>
-                          <span className="font-bold text-pine text-sm">{inspectLand.distanceKm} Kilometers</span>
+                          <span className="text-[#647067] block uppercase font-semibold">Radial Distance</span>
+                          <span className="font-bold text-[#17251B] text-sm">{inspectLand.distanceKm} Kilometers</span>
                         </div>
                       )}
                     </div>
 
                     {inspectLand.matchReasons && inspectLand.matchReasons.length > 0 && (
                       <div className="space-y-2">
-                        <span className="text-xs text-kombu/60 font-bold uppercase tracking-wider block">Match Analysis</span>
+                        <span className="text-xs text-[#647067] font-bold uppercase tracking-wider block">Match Analysis</span>
                         <ul className="space-y-1.5">
                           {inspectLand.matchReasons.map((reason, idx) => (
-                            <li key={idx} className="text-xs text-kombu/80 font-medium flex items-center gap-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-dingley shrink-0" /> {reason}
+                            <li key={idx} className="text-xs text-[#17251B] font-medium flex items-center gap-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" /> {reason}
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
 
-                    <div className="p-3.5 bg-brandy/10 border border-brandy/30 rounded-xl text-[10px] text-kombu/60 leading-normal">
-                      <strong>Discovery View Limit:</strong> In accordance with platform privacy regulations, direct landowner contact details and contract negotiations are unlocked in later contract proposal verification cycles.
+                    <div className="p-3.5 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl text-[10px] text-[#647067] leading-normal">
+                      <strong>Discovery View Limit:</strong> Direct landowner contact details and negotiation cycles unlock upon submitting proposal.
                     </div>
                   </div>
                 ) : (
-                  <div className="h-48 border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-6 bg-brandy/5 text-kombu/60">
-                    <Compass className="w-10 h-10 mb-2 text-brandy" />
-                    <h4 className="font-bold text-pine text-sm mb-1">Select a Plot</h4>
+                  <div className="h-48 border border-dashed border-[#E2E8E3] rounded-2xl flex flex-col items-center justify-center text-center p-6 bg-white text-[#647067]">
+                    <Compass className="w-10 h-10 mb-2 text-[#166534]" />
+                    <h4 className="font-bold text-[#17251B] text-sm mb-1">Select a Plot</h4>
                     <p className="text-[10px] max-w-xs">Click View Details on any discovered land card to inspect score breakdowns and size dimensions.</p>
                   </div>
                 )}
@@ -1793,22 +1942,23 @@ export default function BuyerDashboard() {
 
       {/* 5. MY CONTRACTS TAB */}
       {activeTab === "my-contracts" && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-pine">
+        <div className="space-y-6 animate-in fade-in duration-300 w-full">
+          <div>
+            <h2 className="text-2xl font-bold text-[#17251B]">
               Contract Proposals Directory
             </h2>
+            <p className="text-xs text-[#647067] mt-0.5">Track, negotiate, activate, and manage farming contracts.</p>
           </div>
 
           {loadingContracts ? (
-            <div className="flex flex-col items-center py-20 bg-white rounded-3xl border border-brandy/30">
-              <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-              <p className="text-sm text-kombu/70 mt-4">Retrieving proposals...</p>
+            <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-[#E2E8E3]">
+              <Loader2 className="w-8 h-8 animate-spin text-[#166534]" />
+              <p className="text-sm text-[#647067] mt-4">Retrieving contract directory...</p>
             </div>
           ) : contracts.length === 0 ? (
-            <div className="h-64 border border-dashed border-brandy/60 rounded-3xl flex flex-col items-center justify-center text-center p-8 bg-brandy/5 text-kombu/60 max-w-xl mx-auto">
-              <Compass className="w-12 h-12 mb-3 text-brandy" />
-              <h4 className="font-bold text-pine text-lg mb-1">No Proposals Sent</h4>
+            <div className="h-64 border border-dashed border-[#E2E8E3] rounded-2xl flex flex-col items-center justify-center text-center p-8 bg-white text-[#647067] max-w-xl mx-auto my-8">
+              <Compass className="w-12 h-12 mb-3 text-[#166534]" />
+              <h4 className="font-bold text-[#17251B] text-lg mb-1">No Proposals Sent</h4>
               <p className="text-xs max-w-xs">Selected lands in "Discover Land" tab can be proposed for agricultural contracts.</p>
             </div>
           ) : (
@@ -1816,30 +1966,30 @@ export default function BuyerDashboard() {
               {contracts.map((contract) => (
                 <div
                   key={contract.id}
-                  className="bg-white rounded-2xl border border-brandy/40 shadow-sm overflow-hidden"
+                  className="bg-white rounded-2xl border border-[#E2E8E3] shadow-sm overflow-hidden"
                 >
-                  <div className="bg-brandy/10 p-5 border-b border-brandy/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="bg-[#F6F8F3] p-5 border-b border-[#E2E8E3] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-bold tracking-wider uppercase bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 px-2.5 py-0.5 rounded">
                         {contract.crop?.name || "Crop"} Proposal
                       </span>
-                      <h3 className="font-bold text-lg text-pine mt-1.5 flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-[#17251B] mt-1.5 flex items-center gap-2">
                         Contract #{contract.id.substring(0, 8).toUpperCase()}
-                        <span className="text-[10px] bg-brandy/20 text-pine px-2 py-0.5 rounded font-semibold">
+                        <span className="text-[10px] bg-white border border-[#E2E8E3] text-[#17251B] px-2 py-0.5 rounded font-semibold">
                           v{contract.revision || 1}
                         </span>
                       </h3>
-                      <p className="text-xs text-kombu/60 mt-0.5">
+                      <p className="text-xs text-[#647067] mt-0.5">
                         Proposed to: <strong>{contract.landowner?.name || "Registered Landowner"}</strong> ({contract.landowner?.phone || "N/A"})
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
-                        contract.status === "PENDING_APPROVAL" ? "bg-copper/20 text-copper" :
-                        contract.status === "ACCEPTED" ? "bg-dingley/20 text-dingley" :
-                        contract.status === "ACTIVE" ? "bg-pine text-white" :
-                        contract.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                        "bg-gray-150 text-gray-500"
+                        contract.status === "PENDING_APPROVAL" ? "bg-[#FEF3C7] text-[#F59E0B] border border-[#F59E0B]/30" :
+                        contract.status === "ACCEPTED" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                        contract.status === "ACTIVE" ? "bg-[#166534] text-white" :
+                        contract.status === "REJECTED" ? "bg-[#FEE2E2] text-[#DC2626] border border-[#DC2626]/30" :
+                        "bg-gray-100 text-gray-600"
                       }`}>
                         {contract.status.replace("_", " ")}
                       </span>
@@ -1848,33 +1998,33 @@ export default function BuyerDashboard() {
 
                   <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Land Details</span>
-                      <p className="font-bold text-pine text-sm">{contract.land?.name || "Plot Location"}</p>
-                      <p className="text-kombu/70 mt-0.5">{contract.land?.village}, {contract.land?.district}, {contract.land?.state}</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Land Details</span>
+                      <p className="font-bold text-[#17251B] text-sm">{contract.land?.name || "Plot Location"}</p>
+                      <p className="text-[#647067] mt-0.5">{contract.land?.village}, {contract.land?.district}, {contract.land?.state}</p>
                     </div>
 
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Area & Quantity</span>
-                      <p className="font-bold text-pine text-sm">{contract.landArea} Acres</p>
-                      <p className="text-kombu/70 mt-0.5">Allocated Yield: {contract.allocatedQuantity.toFixed(1)} Tonnes</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Area & Quantity</span>
+                      <p className="font-bold text-[#17251B] text-sm">{contract.landArea} Acres</p>
+                      <p className="text-[#647067] mt-0.5">Allocated Yield: {contract.allocatedQuantity.toFixed(1)} Tonnes</p>
                     </div>
 
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Proposed Value</span>
-                      <p className="font-bold text-copper text-sm">₹{contract.proposedPrice.toLocaleString("en-IN")}</p>
-                      <p className="text-kombu/70 mt-0.5">Estimated timeline payout</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Proposed Value</span>
+                      <p className="font-bold text-[#166534] text-sm">₹{contract.proposedPrice.toLocaleString("en-IN")}</p>
+                      <p className="text-[#647067] mt-0.5">Estimated timeline payout</p>
                     </div>
 
                     <div>
-                      <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-1">Contract Timelines</span>
-                      <p className="font-bold text-pine text-sm">Start: {new Date(contract.startDate).toLocaleDateString()}</p>
-                      <p className="text-kombu/70 mt-0.5">Harvest: {new Date(contract.expectedHarvestDate).toLocaleDateString()}</p>
+                      <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Contract Timelines</span>
+                      <p className="font-bold text-[#17251B] text-sm">Start: {new Date(contract.startDate).toLocaleDateString()}</p>
+                      <p className="text-[#647067] mt-0.5">Harvest: {new Date(contract.expectedHarvestDate).toLocaleDateString()}</p>
                     </div>
                   </div>
 
                   {contract.notes && (
                     <div className="px-5 pb-5">
-                      <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
+                      <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-3.5 rounded-xl text-xs text-[#17251B]">
                         <strong>Negotiation Notes:</strong> "{contract.notes}"
                       </div>
                     </div>
@@ -1882,17 +2032,17 @@ export default function BuyerDashboard() {
 
                   {contract.status === "REJECTED" && contract.rejectionReason && (
                     <div className="px-5 pb-5">
-                      <div className="bg-copper/10 border border-copper/30 p-3 rounded-xl text-xs text-copper">
+                      <div className="bg-[#FEE2E2] border border-[#DC2626]/30 p-3.5 rounded-xl text-xs text-[#DC2626]">
                         <strong>Landowner Rejection Reason:</strong> "{contract.rejectionReason}"
                       </div>
                     </div>
                   )}
 
-                  <div className="bg-brandy/10 px-5 py-3 border-t border-brandy/20 flex justify-end gap-3">
+                  <div className="bg-[#F6F8F3] px-5 py-3 border-t border-[#E2E8E3] flex flex-wrap items-center justify-end gap-3">
                     {contract.status === "PENDING_APPROVAL" && (
                       <button
                         onClick={() => handleCancelContract(contract.id)}
-                        className="px-4 py-2 border border-copper text-copper font-bold rounded-xl hover:bg-copper/5 text-xs transition-all cursor-pointer"
+                        className="px-4 py-2 border border-[#DC2626] text-[#DC2626] font-bold rounded-xl hover:bg-[#FEE2E2] text-xs transition-all cursor-pointer"
                       >
                         Cancel Proposal
                       </button>
@@ -1900,7 +2050,7 @@ export default function BuyerDashboard() {
                     {contract.status === "ACCEPTED" && (
                       <button
                         onClick={() => setShowActivateConfirmId(contract.id)}
-                        className="px-4 py-2 bg-pine text-brandy hover:bg-kombu font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        className="px-4 py-2 bg-[#166534] text-white hover:bg-[#14532d] font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
                       >
                         Activate Contract
                       </button>
@@ -1908,14 +2058,14 @@ export default function BuyerDashboard() {
                     {contract.status === "ACTIVE" && (
                       <>
                         <button
-                          onClick={() => setViewingContractId(contract.id)}
-                          className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                          onClick={() => openContractModal(contract.id)}
+                          className="px-4 py-2 bg-white border border-[#E2E8E3] text-[#166534] hover:bg-[#ECFDF3] font-bold rounded-xl text-xs transition-all cursor-pointer"
                         >
                           View Contract
                         </button>
                         <button
                           onClick={() => handleCompleteContract(contract.id)}
-                          className="px-4 py-2 bg-copper text-brandy hover:bg-copper/90 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                          className="px-4 py-2 bg-[#F59E0B] text-white hover:bg-[#d97706] font-bold rounded-xl text-xs transition-all cursor-pointer"
                         >
                           Complete Contract
                         </button>
@@ -1923,8 +2073,8 @@ export default function BuyerDashboard() {
                     )}
                     {contract.status === "COMPLETED" && (
                       <button
-                        onClick={() => setViewingContractId(contract.id)}
-                        className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                        onClick={() => openContractModal(contract.id)}
+                        className="px-4 py-2 bg-white border border-[#E2E8E3] text-[#166534] hover:bg-[#ECFDF3] font-bold rounded-xl text-xs transition-all cursor-pointer"
                       >
                         View Summary
                       </button>
@@ -1932,8 +2082,8 @@ export default function BuyerDashboard() {
                     {(contract.status === "REJECTED" || contract.status === "CANCELLED") && (
                       <>
                         <button
-                          onClick={() => setViewingContractId(contract.id)}
-                          className="px-4 py-2 bg-brandy/20 text-pine hover:bg-brandy/35 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                          onClick={() => openContractModal(contract.id)}
+                          className="px-4 py-2 bg-white border border-[#E2E8E3] text-[#17251B] hover:bg-[#F6F8F3] font-bold rounded-xl text-xs transition-all cursor-pointer"
                         >
                           View Details
                         </button>
@@ -1959,7 +2109,7 @@ export default function BuyerDashboard() {
                             }
                             setPropNotes(contract.notes || "");
                           }}
-                          className="px-4 py-2 bg-pine text-brandy hover:bg-kombu font-bold rounded-xl text-xs transition-all cursor-pointer"
+                          className="px-4 py-2 bg-[#166534] text-white hover:bg-[#14532d] font-bold rounded-xl text-xs transition-all cursor-pointer"
                         >
                           Propose Again
                         </button>
@@ -1975,75 +2125,75 @@ export default function BuyerDashboard() {
 
       {/* Contract Proposal Modal Overlay */}
       {proposingLand && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-[#E2E8E3] shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
             <div>
-              <h3 className="text-xl font-bold text-pine">Propose Contract</h3>
-              <p className="text-xs text-kombu/70 mt-1">
+              <h3 className="text-xl font-bold text-[#17251B]">Propose Contract</h3>
+              <p className="text-xs text-[#647067] mt-1">
                 Specify timeline targets and proposed pricing for plot <strong>{proposingLand.name}</strong>.
               </p>
             </div>
 
             {propError && (
-              <div className="p-3 bg-copper/10 border border-copper/30 text-copper rounded-xl text-xs font-semibold">
+              <div className="p-3 bg-[#FEE2E2] border border-[#DC2626]/30 text-[#DC2626] rounded-xl text-xs font-semibold">
                 {propError}
               </div>
             )}
 
             <form onSubmit={handleProposeContractSubmit} className="space-y-4 text-xs font-medium">
               <div>
-                <label className="block text-kombu/80 font-bold mb-1.5">Selected Land Area</label>
+                <label className="block text-[#17251B] font-bold mb-1.5">Selected Land Area</label>
                 <input
                   type="text"
                   disabled
                   value={`${proposingLand.size} ${proposingLand.unit}s`}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-brandy rounded-xl outline-none font-semibold text-pine"
+                  className="w-full px-3.5 py-2.5 bg-[#F6F8F3] border border-[#E2E8E3] rounded-xl outline-none font-semibold text-[#17251B]"
                 />
               </div>
 
               <div>
-                <label className="block text-kombu/80 font-bold mb-1.5">Proposed Total Price (₹)</label>
+                <label className="block text-[#17251B] font-bold mb-1.5">Proposed Total Price (₹)</label>
                 <input
                   type="number"
                   required
                   placeholder="e.g. 150000"
                   value={propPrice}
                   onChange={(e) => setPropPrice(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none text-[#17251B]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-kombu/80 font-bold mb-1.5">Start Date</label>
+                  <label className="block text-[#17251B] font-bold mb-1.5">Start Date</label>
                   <input
                     type="date"
                     required
                     value={propStartDate}
                     onChange={(e) => setPropStartDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none text-[#17251B]"
                   />
                 </div>
                 <div>
-                  <label className="block text-kombu/80 font-bold mb-1.5">Harvest Date</label>
+                  <label className="block text-[#17251B] font-bold mb-1.5">Harvest Date</label>
                   <input
                     type="date"
                     required
                     value={propEndDate}
                     onChange={(e) => setPropEndDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none text-[#17251B]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-kombu/80 font-bold mb-1.5">Optional Proposal Notes</label>
+                <label className="block text-[#17251B] font-bold mb-1.5">Optional Proposal Notes</label>
                 <textarea
                   rows={3}
                   placeholder="Specify any soil/crop milestone preferences or payment terms..."
                   value={propNotes}
                   onChange={(e) => setPropNotes(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-brandy/5 border border-brandy focus:border-dingley focus:ring-1 focus:ring-dingley/20 rounded-xl outline-none text-pine"
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E2E8E3] focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20 rounded-xl outline-none text-[#17251B]"
                 />
               </div>
 
@@ -2051,14 +2201,14 @@ export default function BuyerDashboard() {
                 <button
                   type="button"
                   onClick={() => setProposingLand(null)}
-                  className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10"
+                  className="px-4 py-2 border border-[#E2E8E3] text-[#17251B] font-bold rounded-xl hover:bg-[#F6F8F3] cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingProposal}
-                  className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   {submittingProposal ? (
                     <>
@@ -2076,15 +2226,15 @@ export default function BuyerDashboard() {
 
       {/* Activate Contract Confirmation Warning Dialog Modal */}
       {showActivateConfirmId && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-[#E2E8E3] shadow-2xl p-6 sm:p-8 max-w-md w-full relative space-y-6 animate-in slide-in-from-bottom-4 duration-300">
             <div>
-              <h3 className="text-xl font-bold text-pine">Confirm Contract Activation</h3>
-              <p className="text-xs text-kombu/70 mt-2 leading-relaxed">
+              <h3 className="text-xl font-bold text-[#17251B]">Confirm Contract Activation</h3>
+              <p className="text-xs text-[#647067] mt-2 leading-relaxed">
                 Activating this contract will officially begin the farming agreement.
               </p>
-              <div className="bg-brandy/15 border border-brandy/30 text-pine rounded-xl p-3.5 text-xs font-semibold mt-4 leading-normal">
-                This action is irreversible. The land parcel status will remain locked as UNDER_CONTRACT. Buyer and farmer will be bound by the agreed rates.
+              <div className="bg-[#FEF3C7] border border-[#F59E0B]/30 text-[#17251B] rounded-xl p-3.5 text-xs font-semibold mt-4 leading-normal">
+                This action is irreversible. The land parcel status will remain locked as UNDER_CONTRACT. Buyer and farmer will be bound by agreed rates.
               </div>
             </div>
 
@@ -2092,14 +2242,14 @@ export default function BuyerDashboard() {
               <button
                 type="button"
                 onClick={() => setShowActivateConfirmId(null)}
-                className="px-4 py-2 border border-brandy text-pine font-bold rounded-xl hover:bg-brandy/10 text-xs cursor-pointer"
+                className="px-4 py-2 border border-[#E2E8E3] text-[#17251B] font-bold rounded-xl hover:bg-[#F6F8F3] text-xs cursor-pointer"
               >
                 Go Back
               </button>
               <button
                 type="button"
                 onClick={() => handleActivateContract(showActivateConfirmId)}
-                className="px-5 py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md hover:shadow-lg text-xs cursor-pointer"
+                className="px-5 py-2 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl shadow-sm text-xs cursor-pointer"
               >
                 Confirm & Activate
               </button>
@@ -2108,152 +2258,176 @@ export default function BuyerDashboard() {
         </div>
       )}
 
-      {/* Contract Details / Timeline Modal Overlay */}
+      {/* Contract Details / Timeline Modal Overlay - Full Width 96vw / 1400px fixed header & scrollable body */}
       {viewingContractId && (
-        <div className="fixed inset-0 bg-pine/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-brandy/30 shadow-2xl p-6 sm:p-8 max-w-lg w-full relative my-8 animate-in slide-in-from-bottom-4 duration-300 max-h-[calc(100vh-4rem)] flex flex-col">
-            <button
-              onClick={() => setViewingContractId(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-brandy/20 text-kombu/60 hover:text-pine transition-colors cursor-pointer"
-              title="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-[#E2E8E3] shadow-2xl w-[96vw] max-w-[1400px] h-[90vh] flex flex-col min-h-0 relative animate-in slide-in-from-bottom-4 duration-300">
+            {/* Modal Fixed Top Header */}
+            <div className="p-6 sm:p-8 pb-4 border-b border-[#E2E8E3] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white rounded-t-2xl">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeContractModal();
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-[#F6F8F3] hover:bg-[#ECFDF3] border border-[#E2E8E3] hover:border-[#22C55E] text-[#166534] font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0 z-20"
+                  title="Back to My Contracts"
+                >
+                  <ArrowRight className="w-4 h-4 rotate-180" />
+                  <span>Back to My Contracts</span>
+                </button>
+                <div>
+                  <span className="text-[10px] font-bold tracking-wider uppercase bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30 px-2.5 py-0.5 rounded">
+                    {viewingContract?.crop?.name || "Crop"} Contract Details
+                  </span>
+                  <h3 className="text-2xl font-extrabold text-[#17251B] mt-1 flex items-center gap-3">
+                    Contract #{viewingContractId.substring(0, 8).toUpperCase()}
+                    {viewingContract && (
+                      <span className="text-xs bg-[#F6F8F3] border border-[#E2E8E3] text-[#17251B] px-2.5 py-0.5 rounded font-semibold">
+                        v{viewingContract.revision}
+                      </span>
+                    )}
+                  </h3>
+                  {viewingContract && (
+                    <p className="text-xs text-[#647067] mt-1 uppercase tracking-wider font-semibold">
+                      Current Status: <span className="text-[#166534] font-bold">{viewingContract.status.replace("_", " ")}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => closeContractModal()}
+                className="p-2 rounded-full hover:bg-[#F6F8F3] text-[#647067] hover:text-[#17251B] transition-colors cursor-pointer self-start sm:self-auto"
+                title="Close modal"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
             {loadingViewingContract ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-dingley" />
-                <p className="text-xs text-kombu/70 mt-3">Fetching contract details...</p>
+              <div className="flex flex-col items-center justify-center flex-1 py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-[#166534]" />
+                <p className="text-xs text-[#647067] mt-3">Fetching contract details...</p>
               </div>
             ) : viewingContract ? (
-              <div className="flex flex-col flex-1 min-h-0 space-y-4 mt-2">
-                <div>
-                  <span className="text-[10px] font-bold tracking-wider uppercase bg-dingley/20 text-dingley px-2 py-0.5 rounded">
-                    {viewingContract.crop?.name || "Crop"} Contract Details
-                  </span>
-                  <h3 className="text-2xl font-bold text-pine mt-2 flex items-center gap-2">
-                    Contract #{viewingContract.id.substring(0, 8).toUpperCase()}
-                    <span className="text-xs bg-brandy/20 text-pine px-2 py-0.5 rounded font-semibold">
-                      v{viewingContract.revision}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-kombu/60 mt-1 uppercase tracking-wider font-semibold">
-                    Current Status: <span className="text-copper">{viewingContract.status.replace("_", " ")}</span>
-                  </p>
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                {/* Fixed Sticky Tab Navigation Bar */}
+                <div className="px-6 sm:px-8 pt-3 border-b border-[#E2E8E3] bg-white sticky top-0 z-10 shrink-0">
+                  <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 text-sm font-semibold">
+                    {[
+                      "Overview",
+                      "Financials",
+                      "Yield",
+                      "Milestones",
+                      "Tasks",
+                      "Progress",
+                      "Monitoring",
+                    ].map((tab) => {
+                      const isActive = activeDetailTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setActiveDetailTab(tab as any)}
+                          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer text-xs sm:text-sm ${
+                            isActive
+                              ? "bg-[#166534] text-white font-bold shadow-sm"
+                              : "text-[#647067] hover:text-[#17251B] hover:bg-[#F6F8F3]"
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Tab Navigation Bar */}
-                <div className="flex border-b border-brandy/20 overflow-x-auto scrollbar-none gap-2 pb-1 text-xs font-semibold shrink-0">
-                  {[
-                    "Overview",
-                    "Financials",
-                    "Yield",
-                    "Milestones",
-                    "Tasks",
-                    "Progress",
-                    "Monitoring",
-                  ].map((tab) => {
-                    const isActive = activeDetailTab === tab;
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setActiveDetailTab(tab as any)}
-                        className={`px-3 py-1.5 rounded-t-lg transition-colors whitespace-nowrap cursor-pointer ${
-                          isActive
-                            ? "bg-pine text-brandy font-bold border-b-2 border-pine"
-                            : "text-kombu/60 hover:text-pine hover:bg-brandy/5"
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Active Tab Content Area */}
-                <div className="overflow-y-auto flex-1 pr-1 space-y-4 min-h-0">
+                {/* Only Content Area Is Scrollable */}
+                <div className="flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 space-y-6">
                   {activeDetailTab === "Overview" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {/* Timeline Tracker */}
-                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4">
-                        <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Timeline Tracker</h4>
-                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                            viewingContract.status === "ACTIVE" ? "bg-dingley/20 text-pine" : "bg-brandy/20 text-pine"
+                      <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-5 rounded-2xl space-y-4">
+                        <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-2">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Timeline Tracker</h4>
+                          <span className={`text-[10px] px-2.5 py-0.5 rounded font-bold uppercase ${
+                            viewingContract.status === "ACTIVE" ? "bg-[#ECFDF3] text-[#166534]" : "bg-white text-[#17251B] border border-[#E2E8E3]"
                           }`}>
                             {viewingContract.status}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-xs font-medium text-kombu">
+                        <div className="grid grid-cols-2 gap-4 text-xs font-medium text-[#17251B]">
                           <div>
-                            <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Proposed Start Date</span>
-                            <span>{new Date(viewingContract.startDate).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Proposed Start Date</span>
+                            <span className="font-bold text-sm">{new Date(viewingContract.startDate).toLocaleDateString()}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Target Harvest Date</span>
-                            <span>{new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Target Harvest Date</span>
+                            <span className="font-bold text-sm">{new Date(viewingContract.expectedHarvestDate).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Contract Health Overview Banner */}
                       {viewingContractOverview && (
-                        <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
-                          viewingContractOverview.health === "COMPLETED" ? "bg-dingley/15 text-pine border border-dingley/30" :
-                          viewingContractOverview.health === "NEEDS_ATTENTION" ? "bg-red-50 text-red-800 border border-red-200" :
-                          "bg-copper/10 text-copper border border-copper/30"
+                        <div className={`p-5 rounded-2xl flex items-center justify-between text-xs font-semibold ${
+                          viewingContractOverview.health === "COMPLETED" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                          viewingContractOverview.health === "NEEDS_ATTENTION" ? "bg-[#FEE2E2] text-[#DC2626] border border-[#DC2626]/30" :
+                          "bg-[#FEF3C7] text-[#F59E0B] border border-[#F59E0B]/30"
                         }`}>
                           <div>
                             <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Contract Health Status</p>
-                            <p className="text-base font-bold mt-0.5">
+                            <p className="text-lg font-extrabold mt-0.5">
                               {viewingContractOverview.health.replace("_", " ")}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Timeline Progress</p>
-                            <p className="text-base font-bold mt-0.5">{viewingContractOverview.progressPercentage}%</p>
+                            <p className="text-lg font-extrabold mt-0.5">{viewingContractOverview.progressPercentage}%</p>
                           </div>
                         </div>
                       )}
 
                       {/* Grid Info */}
-                      <div className="grid grid-cols-2 gap-4 text-xs font-medium">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs bg-white p-5 rounded-2xl border border-[#E2E8E3]">
                         <div>
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Buyer Involved</span>
-                          <span className="font-bold text-pine">{viewingContract.buyer?.name}</span>
-                          <span className="text-[10px] text-kombu/60 block">{viewingContract.buyer?.phone}</span>
+                          <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Buyer Involved</span>
+                          <span className="font-bold text-[#17251B] text-sm">{viewingContract.buyer?.name}</span>
+                          <span className="text-[10px] text-[#647067] block mt-0.5">{viewingContract.buyer?.phone}</span>
                         </div>
                         <div>
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Farmer Owner</span>
-                          <span className="font-bold text-pine">{viewingContract.landowner?.name}</span>
-                          <span className="text-[10px] text-kombu/60 block">{viewingContract.landowner?.phone}</span>
+                          <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Farmer Owner</span>
+                          <span className="font-bold text-[#17251B] text-sm">{viewingContract.landowner?.name}</span>
+                          <span className="text-[10px] text-[#647067] block mt-0.5">{viewingContract.landowner?.phone}</span>
                         </div>
-                        <div className="col-span-2 border-t border-brandy/20 pt-3">
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Land Parcel Details</span>
-                          <span className="font-bold text-pine">{viewingContract.land?.name}</span>
-                          <span className="text-kombu/70 block mt-0.5">
-                            {viewingContract.land?.village}, {viewingContract.land?.district}, {viewingContract.land?.state}
-                          </span>
+                        <div>
+                          <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Proposed Area</span>
+                          <span className="font-bold text-[#166534] text-sm">{viewingContract.landArea} Acres</span>
                         </div>
-                        <div className="border-t border-brandy/20 pt-3">
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Proposed Area</span>
-                          <span className="font-bold text-pine text-sm">{viewingContract.landArea} Acres</span>
-                        </div>
-                        <div className="border-t border-brandy/20 pt-3">
-                          <span className="text-kombu/60 block uppercase font-bold tracking-wider mb-0.5">Payout Valuation</span>
-                          <span className="font-bold text-copper text-sm">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
+                        <div>
+                          <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Payout Valuation</span>
+                          <span className="font-bold text-[#166534] text-sm">₹{viewingContract.proposedPrice.toLocaleString("en-IN")}</span>
                         </div>
                       </div>
 
+                      <div className="bg-[#F6F8F3] p-5 rounded-2xl border border-[#E2E8E3] text-xs">
+                        <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Land Parcel Details</span>
+                        <span className="font-bold text-[#17251B] text-sm">{viewingContract.land?.name}</span>
+                        <span className="text-[#647067] block mt-0.5">
+                          {viewingContract.land?.village}, {viewingContract.land?.district}, {viewingContract.land?.state}
+                        </span>
+                      </div>
+
                       {viewingContract.notes && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-3 rounded-xl text-xs text-kombu/80">
-                          <strong>Proposal Note log:</strong> "{viewingContract.notes}"
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-4 rounded-xl text-xs text-[#17251B]">
+                          <strong>Proposal Note Log:</strong> "{viewingContract.notes}"
                         </div>
                       )}
 
                       {viewingContract.status === "REJECTED" && viewingContract.rejectionReason && (
-                        <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
+                        <div className="bg-[#FEE2E2] border border-[#DC2626]/30 p-4 rounded-xl text-xs text-[#DC2626]">
                           <strong>Landowner Rejection Reason:</strong> "{viewingContract.rejectionReason}"
                         </div>
                       )}
@@ -2261,110 +2435,109 @@ export default function BuyerDashboard() {
                   )}
 
                   {activeDetailTab === "Financials" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Financial Allocation Card (Buyer View) */}
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {loadingFinancials ? (
-                        <div className="p-3 bg-brandy/5 border border-brandy/20 rounded-2xl flex items-center justify-center text-xs text-kombu/60">
-                          <Loader2 className="w-4 h-4 animate-spin text-dingley" />
+                        <div className="p-8 bg-[#F6F8F3] border border-[#E2E8E3] rounded-2xl flex items-center justify-center text-xs text-[#647067]">
+                          <Loader2 className="w-5 h-5 animate-spin text-[#166534]" />
                           <span className="ml-2">Loading financial allocations...</span>
                         </div>
                       ) : financialsLoadError ? (
-                        <div className="p-3.5 bg-red-50 text-red-800 border border-red-200 rounded-2xl text-xs font-semibold">
+                        <div className="p-4 bg-[#FEE2E2] text-[#DC2626] border border-[#DC2626]/30 rounded-2xl text-xs font-semibold">
                           Financial allocations details unavailable: {financialsLoadError}
                         </div>
                       ) : viewingContractOverview?.financialSummary ? (
                         <>
-                          <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
-                            <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                              <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Budget Allocation</h4>
-                              <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                                viewingContractOverview.financialSummary.isConfigured ? "bg-dingley/20 text-pine" : "bg-amber-100 text-amber-800"
+                          <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                            <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-3">
+                              <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider font-bold">Budget Allocation Breakdown</h4>
+                              <span className={`text-[10px] px-2.5 py-0.5 rounded font-bold uppercase ${
+                                viewingContractOverview.financialSummary.isConfigured ? "bg-[#ECFDF3] text-[#166534]" : "bg-[#FEF3C7] text-[#F59E0B]"
                               }`}>
                                 {viewingContractOverview.financialSummary.isConfigured ? "Agreed Setup" : "Awaiting Allocation"}
                               </span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-5 rounded-xl border border-[#E2E8E3]">
                               <div>
-                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Landowner Payout (50%)</span>
-                                <span className="font-bold text-pine">₹{viewingContractOverview.financialSummary.landownerAmount.toLocaleString("en-IN")}</span>
+                                <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Landowner Payout (50%)</span>
+                                <span className="font-bold text-[#166534] text-sm">₹{viewingContractOverview.financialSummary.landownerAmount.toLocaleString("en-IN")}</span>
                               </div>
                               <div>
-                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Workforce Budget (25%)</span>
-                                <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.workforceBudget.toLocaleString("en-IN")}</span>
+                                <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Workforce Budget (25%)</span>
+                                <span className="font-bold text-[#17251B] text-sm">₹{viewingContractOverview.financialSummary.workforceBudget.toLocaleString("en-IN")}</span>
                               </div>
                               <div>
-                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Logistics Budget (10%)</span>
-                                <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.logisticsBudget.toLocaleString("en-IN")}</span>
+                                <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Logistics Budget (10%)</span>
+                                <span className="font-bold text-[#17251B] text-sm">₹{viewingContractOverview.financialSummary.logisticsBudget.toLocaleString("en-IN")}</span>
                               </div>
                               <div>
-                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Platform Service Fee (10%)</span>
-                                <span className="font-semibold text-pine">₹{viewingContractOverview.financialSummary.platformFee.toLocaleString("en-IN")}</span>
+                                <span className="text-[10px] text-[#647067] block font-semibold mb-0.5">Platform Service Fee (10%)</span>
+                                <span className="font-bold text-[#17251B] text-sm">₹{viewingContractOverview.financialSummary.platformFee.toLocaleString("en-IN")}</span>
                               </div>
-                              <div className="col-span-2 border-t border-brandy/25 pt-2">
-                                <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Total Contract Valuation</span>
-                                <span className="font-bold text-copper text-sm">₹{viewingContractOverview.financialSummary.totalContractValue.toLocaleString("en-IN")}</span>
+                              <div className="col-span-1 sm:col-span-2 lg:col-span-4 border-t border-[#E2E8E3] pt-3 flex justify-between items-center">
+                                <span className="text-xs text-[#647067] font-bold uppercase">Total Contract Valuation</span>
+                                <span className="font-extrabold text-[#166534] text-base">₹{viewingContractOverview.financialSummary.totalContractValue.toLocaleString("en-IN")}</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Financial custom settings editor form for Buyer */}
                           {viewingContract.status === "ACCEPTED" && (
-                            <form onSubmit={handleSaveFinancials} className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs animate-in fade-in">
-                              <h4 className="text-xs font-bold text-pine uppercase tracking-wider border-b border-brandy/10 pb-2 font-bold">
+                            <form onSubmit={handleSaveFinancials} className="bg-white border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs shadow-sm">
+                              <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider border-b border-[#E2E8E3] pb-3">
                                 Customize Budget Allocations
                               </h4>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Landowner Payout (₹)</label>
+                                  <label className="block text-[10px] text-[#647067] font-bold mb-1 uppercase">Landowner Payout (₹)</label>
                                   <input
                                     type="number"
                                     step="0.01"
-                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    className="w-full p-2.5 border border-[#E2E8E3] rounded-xl text-xs outline-none focus:border-[#166534]"
                                     value={editLandownerAmount}
                                     onChange={(e) => setEditLandownerAmount(e.target.value)}
                                     required
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Workforce Budget (₹)</label>
+                                  <label className="block text-[10px] text-[#647067] font-bold mb-1 uppercase">Workforce Budget (₹)</label>
                                   <input
                                     type="number"
                                     step="0.01"
-                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    className="w-full p-2.5 border border-[#E2E8E3] rounded-xl text-xs outline-none focus:border-[#166534]"
                                     value={editWorkforceBudget}
                                     onChange={(e) => setEditWorkforceBudget(e.target.value)}
                                     required
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Logistics Budget (₹)</label>
+                                  <label className="block text-[10px] text-[#647067] font-bold mb-1 uppercase">Logistics Budget (₹)</label>
                                   <input
                                     type="number"
                                     step="0.01"
-                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    className="w-full p-2.5 border border-[#E2E8E3] rounded-xl text-xs outline-none focus:border-[#166534]"
                                     value={editLogisticsBudget}
                                     onChange={(e) => setEditLogisticsBudget(e.target.value)}
                                     required
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Platform Service Fee (₹)</label>
+                                  <label className="block text-[10px] text-[#647067] font-bold mb-1 uppercase">Platform Service Fee (₹)</label>
                                   <input
                                     type="number"
                                     step="0.01"
-                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    className="w-full p-2.5 border border-[#E2E8E3] rounded-xl text-xs outline-none focus:border-[#166534]"
                                     value={editPlatformFee}
                                     onChange={(e) => setEditPlatformFee(e.target.value)}
                                     required
                                   />
                                 </div>
-                                <div className="col-span-2">
-                                  <label className="block text-[10px] text-kombu/60 font-semibold mb-1">Reserve Budget (₹)</label>
+                                <div className="sm:col-span-2">
+                                  <label className="block text-[10px] text-[#647067] font-bold mb-1 uppercase">Reserve Budget (₹)</label>
                                   <input
                                     type="number"
                                     step="0.01"
-                                    className="w-full p-2 border border-brandy/30 rounded-lg text-xs"
+                                    className="w-full p-2.5 border border-[#E2E8E3] rounded-xl text-xs outline-none focus:border-[#166534]"
                                     value={editReserveBudget}
                                     onChange={(e) => setEditReserveBudget(e.target.value)}
                                     required
@@ -2373,13 +2546,13 @@ export default function BuyerDashboard() {
                               </div>
 
                               {financialsError && (
-                                <p className="text-[10px] text-red-650 font-bold bg-red-50 p-2 rounded-lg">{financialsError}</p>
+                                <p className="text-xs text-[#DC2626] font-bold bg-[#FEE2E2] p-3 rounded-xl border border-[#DC2626]/30">{financialsError}</p>
                               )}
 
                               <button
                                 type="submit"
                                 disabled={savingFinancials}
-                                className="w-full py-2 bg-pine hover:bg-kombu text-brandy font-bold rounded-lg text-xs shadow transition-colors disabled:opacity-50 cursor-pointer"
+                                className="w-full py-3 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl text-xs shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
                               >
                                 {savingFinancials ? "Saving custom allocations..." : "Save Financial Allocation"}
                               </button>
@@ -2387,52 +2560,51 @@ export default function BuyerDashboard() {
                           )}
                         </>
                       ) : (
-                        <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
-                          No financials allocations initialized for this contract.
+                        <div className="bg-[#F6F8F3] p-4 rounded-xl text-center text-[#647067] text-xs">
+                          No financial allocations initialized for this contract.
                         </div>
                       )}
                     </div>
                   )}
 
                   {activeDetailTab === "Yield" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Yield Allocation Card (Buyer View) */}
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {loadingYield ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="w-4 h-4 animate-spin text-dingley" />
-                          <span className="text-[10px] text-kombu/60 ml-2">Loading yield tracking details...</span>
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-[#166534]" />
+                          <span className="text-xs text-[#647067] ml-2">Loading yield tracking details...</span>
                         </div>
                       ) : yieldLoadError ? (
-                        <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
-                          <p className="font-semibold text-[10px]">Yield tracking details unavailable</p>
-                          <p className="text-[9px] opacity-85 mt-0.5">{yieldLoadError}</p>
+                        <div className="bg-[#FEE2E2] text-[#DC2626] p-4 rounded-2xl border border-[#DC2626]/30">
+                          <p className="font-semibold text-xs">Yield tracking details unavailable</p>
+                          <p className="text-[10px] opacity-85 mt-0.5">{yieldLoadError}</p>
                         </div>
                       ) : viewingContractOverview?.yieldSummary ? (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider flex items-center justify-between border-b border-brandy/10 pb-2 font-bold">
-                            <span>Crop Production & Yield</span>
-                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                              viewingContractOverview.yieldSummary.fulfillmentStatus === "FULFILLED" ? "bg-dingley/20 text-pine" :
-                              viewingContractOverview.yieldSummary.fulfillmentStatus === "OVERFULFILLED" ? "bg-green-100 text-green-800" :
-                              viewingContractOverview.yieldSummary.fulfillmentStatus === "PARTIAL" ? "bg-amber-100 text-amber-800" :
-                              "bg-brandy/20 text-pine"
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                          <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-3">
+                            <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Crop Production & Yield Fulfillment</h4>
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded font-bold uppercase ${
+                              viewingContractOverview.yieldSummary.fulfillmentStatus === "FULFILLED" ? "bg-[#ECFDF3] text-[#166534]" :
+                              viewingContractOverview.yieldSummary.fulfillmentStatus === "OVERFULFILLED" ? "bg-[#ECFDF3] text-[#166534]" :
+                              viewingContractOverview.yieldSummary.fulfillmentStatus === "PARTIAL" ? "bg-[#FEF3C7] text-[#F59E0B]" :
+                              "bg-white text-[#17251B] border border-[#E2E8E3]"
                             }`}>
                               {viewingContractOverview.yieldSummary.fulfillmentStatus}
                             </span>
-                          </h4>
+                          </div>
 
-                          <div className="grid grid-cols-2 gap-3 bg-white/60 p-4 rounded-xl border border-brandy/10">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-[#E2E8E3]">
                             <div>
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Estimated Production Yield</span>
-                              <span className="font-bold text-pine">
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5 uppercase">Estimated Production Yield</span>
+                              <span className="font-extrabold text-[#17251B] text-base">
                                 {viewingContractOverview.yieldSummary.estimatedQuantity !== null
                                   ? `${viewingContractOverview.yieldSummary.estimatedQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
                                   : "Calculating..."}
                               </span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-kombu/60 block font-semibold mb-0.5">Recorded Harvest Yield</span>
-                              <span className="font-bold text-pine">
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5 uppercase">Recorded Harvest Yield</span>
+                              <span className="font-extrabold text-[#166534] text-base">
                                 {viewingContractOverview.yieldSummary.actualQuantity !== null
                                   ? `${viewingContractOverview.yieldSummary.actualQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
                                   : "Awaiting Harvest..."}
@@ -2441,7 +2613,7 @@ export default function BuyerDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60">
+                        <div className="bg-[#F6F8F3] p-4 rounded-xl text-center text-[#647067] text-xs">
                           Yield parameters not initialized yet.
                         </div>
                       )}
@@ -2449,48 +2621,45 @@ export default function BuyerDashboard() {
                   )}
 
                   {activeDetailTab === "Milestones" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Crop Milestone Plan Card (Buyer View) */}
-                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs">
-                        <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                          <div>
-                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Crop Milestone Plan</h4>
-                            <p className="text-[9px] text-kombu/60 mt-0.5">
-                              Planned System Schedule (Compare with Farm Progress History for actual progress)
-                            </p>
-                          </div>
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                        <div className="border-b border-[#E2E8E3] pb-3">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Crop Milestone Schedule</h4>
+                          <p className="text-[10px] text-[#647067] mt-0.5">
+                            System-calculated operational timeline per crop lifecycle phase.
+                          </p>
                         </div>
 
                         {loadingMilestones ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-dingley" />
-                            <span className="text-[10px] text-kombu/60 ml-2">Loading crop milestones...</span>
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-5 h-5 animate-spin text-[#166534]" />
+                            <span className="text-xs text-[#647067] ml-2">Loading crop milestones...</span>
                           </div>
                         ) : milestonesLoadError ? (
-                          <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
-                            <p className="font-semibold text-[10px]">Crop milestone plan unavailable</p>
-                            <p className="text-[9px] opacity-85 mt-0.5">{milestonesLoadError}</p>
+                          <div className="bg-[#FEE2E2] text-[#DC2626] p-4 rounded-xl border border-[#DC2626]/30">
+                            <p className="font-semibold text-xs">Crop milestone plan unavailable</p>
+                            <p className="text-[10px] opacity-85 mt-0.5">{milestonesLoadError}</p>
                           </div>
                         ) : viewingContractMilestones.length > 0 ? (
-                          <div className="relative border-l border-brandy/30 ml-2 pl-4 space-y-3 py-1">
+                          <div className="relative border-l-2 border-[#166534]/30 ml-3 pl-6 space-y-4 py-2">
                             {viewingContractMilestones.map((ms: any) => {
                               const statusColors = 
-                                ms.status === "COMPLETED" ? "bg-dingley/20 text-pine" :
-                                ms.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-800" :
-                                ms.status === "OVERDUE" ? "bg-red-100 text-red-800 font-bold" :
-                                "bg-gray-100 text-gray-700";
+                                ms.status === "COMPLETED" ? "bg-[#ECFDF3] text-[#166534] border border-[#22C55E]/30" :
+                                ms.status === "IN_PROGRESS" ? "bg-[#FEF3C7] text-[#F59E0B] border border-[#F59E0B]/30" :
+                                ms.status === "OVERDUE" ? "bg-[#FEE2E2] text-[#DC2626] border border-[#DC2626]/30" :
+                                "bg-white text-[#647067] border border-[#E2E8E3]";
 
                               return (
                                 <div key={ms.id} className="relative">
-                                  <span className={`absolute -left-[22px] top-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold ring-4 ring-white ${
-                                    ms.status === "COMPLETED" ? "bg-dingley text-white" : "bg-brandy/30 text-kombu"
+                                  <span className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ring-4 ring-[#F6F8F3] ${
+                                    ms.status === "COMPLETED" ? "bg-[#166534] text-white" : "bg-[#E2E8E3] text-[#17251B]"
                                   }`}>
                                     {ms.sequence}
                                   </span>
-                                  <div className="bg-white/60 p-2.5 rounded-xl border border-brandy/10 flex justify-between items-start gap-4">
+                                  <div className="bg-white p-4 rounded-xl border border-[#E2E8E3] shadow-sm flex justify-between items-start gap-4">
                                     <div>
-                                      <p className="font-bold text-pine text-xs">{ms.title}</p>
-                                      <p className="text-[10px] text-kombu/60 mt-0.5">
+                                      <p className="font-bold text-[#17251B] text-sm">{ms.title}</p>
+                                      <p className="text-xs text-[#647067] mt-1 font-medium">
                                         Planned Date: {new Date(ms.plannedDate).toLocaleDateString("en-IN", {
                                           day: "numeric",
                                           month: "short",
@@ -2498,7 +2667,7 @@ export default function BuyerDashboard() {
                                         })}
                                       </p>
                                       {ms.completedAt && (
-                                        <p className="text-[9px] text-dingley font-semibold mt-0.5">
+                                        <p className="text-xs text-[#166534] font-bold mt-0.5">
                                           Completed: {new Date(ms.completedAt).toLocaleDateString("en-IN", {
                                             day: "numeric",
                                             month: "short",
@@ -2507,7 +2676,7 @@ export default function BuyerDashboard() {
                                         </p>
                                       )}
                                     </div>
-                                    <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${statusColors}`}>
+                                    <span className={`text-[10px] px-2.5 py-1 rounded-md font-bold uppercase ${statusColors}`}>
                                       {ms.status}
                                     </span>
                                   </div>
@@ -2516,7 +2685,7 @@ export default function BuyerDashboard() {
                             })}
                           </div>
                         ) : (
-                          <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60 font-medium italic">
+                          <div className="bg-white p-4 rounded-xl text-center text-[#647067] font-medium italic border border-[#E2E8E3]">
                             No milestones generated for this contract.
                           </div>
                         )}
@@ -2524,26 +2693,26 @@ export default function BuyerDashboard() {
                     </div>
                   )}
 
+                  {/* Tasks Tab - Fully accessible without header overlap */}
                   {activeDetailTab === "Tasks" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Crop Actionable Tasks Card (Buyer View) */}
-                      <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-4 text-xs">
-                        <div>
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Crop Actionable Tasks</h4>
-                          <p className="text-[9px] text-kombu/60 mt-0.5">
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                        <div className="border-b border-[#E2E8E3] pb-3">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Crop Actionable Tasks Checklist</h4>
+                          <p className="text-[10px] text-[#647067] mt-0.5">
                             Detailed operational task checklist per milestone stage (Read-Only)
                           </p>
                         </div>
 
                         {loadingTasks ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-dingley" />
-                            <span className="text-[10px] text-kombu/60 ml-2">Loading crop tasks...</span>
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-5 h-5 animate-spin text-[#166534]" />
+                            <span className="text-xs text-[#647067] ml-2">Loading crop tasks...</span>
                           </div>
                         ) : tasksLoadError ? (
-                          <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">
-                            <p className="font-semibold text-[10px]">Crop tasks unavailable</p>
-                            <p className="text-[9px] opacity-85 mt-0.5">{tasksLoadError}</p>
+                          <div className="bg-[#FEE2E2] text-[#DC2626] p-4 rounded-xl border border-[#DC2626]/30">
+                            <p className="font-semibold text-xs">Crop tasks unavailable</p>
+                            <p className="text-[10px] opacity-85 mt-0.5">{tasksLoadError}</p>
                           </div>
                         ) : viewingContractTasks.length > 0 ? (
                           <div className="space-y-4">
@@ -2552,46 +2721,46 @@ export default function BuyerDashboard() {
                               if (msTasks.length === 0) return null;
 
                               return (
-                                <div key={ms.id} className="bg-white/60 p-3.5 rounded-xl border border-brandy/10 space-y-2">
-                                  <h5 className="font-bold text-pine text-xs border-b border-brandy/10 pb-1.5 flex justify-between items-center font-bold">
+                                <div key={ms.id} className="bg-white p-5 rounded-xl border border-[#E2E8E3] space-y-3 shadow-sm">
+                                  <h5 className="font-bold text-[#17251B] text-xs border-b border-[#E2E8E3] pb-2 flex justify-between items-center">
                                     <span>Stage {ms.sequence}: {ms.title}</span>
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-pine/10 text-pine rounded font-semibold uppercase">
+                                    <span className="text-[10px] px-2 py-0.5 bg-[#ECFDF3] text-[#166534] rounded font-semibold uppercase">
                                       {ms.status}
                                     </span>
                                   </h5>
-                                  <div className="space-y-2 pt-1">
+                                  <div className="space-y-2.5 pt-1">
                                     {msTasks.map((task: any) => {
                                       const priorityColors = 
-                                        task.priority === "CRITICAL" ? "text-red-655 bg-red-50 border border-red-100" :
-                                        task.priority === "HIGH" ? "text-amber-700 bg-amber-50 border border-amber-100" :
-                                        task.priority === "MEDIUM" ? "text-pine bg-dingley/10 border border-dingley/20" :
-                                        "text-kombu/60 bg-gray-50 border border-gray-100";
+                                        task.priority === "CRITICAL" ? "text-[#DC2626] bg-[#FEE2E2] border border-[#DC2626]/30" :
+                                        task.priority === "HIGH" ? "text-[#F59E0B] bg-[#FEF3C7] border border-[#F59E0B]/30" :
+                                        task.priority === "MEDIUM" ? "text-[#166534] bg-[#ECFDF3] border border-[#22C55E]/30" :
+                                        "text-[#647067] bg-[#F6F8F3] border border-[#E2E8E3]";
 
                                       const statusBadge = 
-                                        task.status === "COMPLETED" ? "text-dingley border border-dingley/20 bg-dingley/5" :
-                                        task.status === "IN_PROGRESS" ? "text-amber-600 border border-amber-200 bg-amber-50" :
-                                        task.status === "OVERDUE" ? "text-red-600 border border-red-200 bg-red-50 font-bold animate-pulse" :
-                                        "text-kombu/40 border border-gray-200 bg-gray-50";
+                                        task.status === "COMPLETED" ? "text-[#166534] border border-[#22C55E]/30 bg-[#ECFDF3]" :
+                                        task.status === "IN_PROGRESS" ? "text-[#F59E0B] border border-[#F59E0B]/30 bg-[#FEF3C7]" :
+                                        task.status === "OVERDUE" ? "text-[#DC2626] border border-[#DC2626]/30 bg-[#FEE2E2] font-bold" :
+                                        "text-[#647067] border border-[#E2E8E3] bg-[#F6F8F3]";
 
                                       return (
-                                        <div key={task.id} className="flex justify-between items-start gap-3 pl-1 text-[11px] border-b border-brandy/5 pb-2 last:border-0 last:pb-0">
+                                        <div key={task.id} className="flex justify-between items-start gap-4 text-xs border-b border-[#E2E8E3]/60 pb-2.5 last:border-0 last:pb-0">
                                           <div className="flex-1">
-                                            <p className={`font-semibold ${task.status === 'COMPLETED' ? 'line-through text-kombu/40' : 'text-kombu'}`}>
+                                            <p className={`font-semibold ${task.status === 'COMPLETED' ? 'line-through text-[#647067]' : 'text-[#17251B]'}`}>
                                               {task.sequence}. {task.title}
                                             </p>
                                             {task.description && (
-                                              <p className="text-[9.5px] text-kombu/50 mt-0.5">{task.description}</p>
+                                              <p className="text-[10px] text-[#647067] mt-0.5">{task.description}</p>
                                             )}
-                                            <div className="flex gap-2 items-center mt-1 text-[8.5px]">
-                                              <span className={`px-1 rounded ${priorityColors}`}>{task.priority} Priority</span>
+                                            <div className="flex gap-2 items-center mt-1.5 text-[9px]">
+                                              <span className={`px-1.5 py-0.5 rounded font-bold ${priorityColors}`}>{task.priority} Priority</span>
                                               {task.dueDate && (
-                                                <span className="text-kombu/50">
+                                                <span className="text-[#647067] font-medium">
                                                   Due: {new Date(task.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                                                 </span>
                                               )}
                                             </div>
                                           </div>
-                                          <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${statusBadge}`}>
+                                          <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${statusBadge}`}>
                                             {task.status}
                                           </span>
                                         </div>
@@ -2603,7 +2772,7 @@ export default function BuyerDashboard() {
                             })}
                           </div>
                         ) : (
-                          <div className="bg-brandy/10 p-3 rounded-xl text-center text-kombu/60 font-medium italic">
+                          <div className="bg-white p-4 rounded-xl text-center text-[#647067] font-medium italic border border-[#E2E8E3]">
                             No actionable tasks generated for this contract status.
                           </div>
                         )}
@@ -2612,12 +2781,12 @@ export default function BuyerDashboard() {
                   )}
 
                   {activeDetailTab === "Progress" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {/* Milestone Stepper */}
                       {viewingContract.status === "ACTIVE" && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Milestone Stepper</h4>
-                          <div className="flex justify-between items-center text-[10px] text-kombu/70">
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Milestone Stepper</h4>
+                          <div className="flex justify-between items-center text-xs text-[#647067]">
                             {[
                               { key: "LAND_PREPARATION", label: "Prep" },
                               { key: "SOWING", label: "Sowing" },
@@ -2629,20 +2798,19 @@ export default function BuyerDashboard() {
                               const isLatest = viewingContract.progressUpdates && viewingContract.progressUpdates[viewingContract.progressUpdates.length - 1]?.stage === step.key;
                               return (
                                 <div key={step.key} className="flex flex-col items-center flex-1 relative">
-                                  {/* Connector line */}
                                   {idx > 0 && (
-                                    <div className={`absolute left-[-50%] right-[50%] top-2.5 h-[2px] z-0 ${
-                                      isCompleted ? "bg-dingley" : "bg-brandy/20"
+                                    <div className={`absolute left-[-50%] right-[50%] top-3 h-[2px] z-0 ${
+                                      isCompleted ? "bg-[#22C55E]" : "bg-[#E2E8E3]"
                                     }`} />
                                   )}
-                                  <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-[9px] relative z-10 ${
-                                    isLatest ? "bg-pine text-white ring-4 ring-pine/20" :
-                                    isCompleted ? "bg-dingley text-white" :
-                                    "bg-brandy/20 text-kombu/45"
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs relative z-10 ${
+                                    isLatest ? "bg-[#166534] text-white ring-4 ring-[#166534]/20" :
+                                    isCompleted ? "bg-[#22C55E] text-white" :
+                                    "bg-white border border-[#E2E8E3] text-[#647067]"
                                   }`}>
                                     {idx + 1}
                                   </div>
-                                  <span className={`mt-1 font-semibold ${isLatest ? "text-pine font-bold" : isCompleted ? "text-dingley" : "text-kombu/50"}`}>{step.label}</span>
+                                  <span className={`mt-1.5 text-[10px] font-semibold ${isLatest ? "text-[#166534] font-bold" : isCompleted ? "text-[#166534]" : "text-[#647067]"}`}>{step.label}</span>
                                 </div>
                               );
                             })}
@@ -2652,24 +2820,24 @@ export default function BuyerDashboard() {
 
                       {/* Farm Progress Updates Timeline */}
                       {viewingContract.status === "ACTIVE" && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Farm Progress History</h4>
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-3">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Farm Progress History</h4>
                           {!viewingContract.progressUpdates || viewingContract.progressUpdates.length === 0 ? (
-                            <p className="text-xs text-kombu/50 italic">No farming progress updates yet.</p>
+                            <p className="text-xs text-[#647067] italic">No farming progress updates recorded yet.</p>
                           ) : (
-                            <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                            <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
                               {viewingContract.progressUpdates.map((update: any) => (
-                                <div key={update.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1">
-                                  <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
-                                    <span className="font-bold text-pine uppercase tracking-wide text-[10px]">
+                                <div key={update.id} className="p-4 bg-white border border-[#E2E8E3] rounded-xl text-xs space-y-1 shadow-sm">
+                                  <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-1.5">
+                                    <span className="font-bold text-[#166534] uppercase tracking-wide text-xs">
                                       {update.stage.replace("_", " ")}
                                     </span>
-                                    <span className="text-[9px] text-kombu/60">
+                                    <span className="text-[10px] text-[#647067]">
                                       {new Date(update.createdAt).toLocaleString()}
                                     </span>
                                   </div>
                                   {update.notes && (
-                                    <p className="text-[10px] text-kombu/80 mt-1 italic font-medium">"{update.notes}"</p>
+                                    <p className="text-xs text-[#17251B] mt-1.5 italic font-medium">"{update.notes}"</p>
                                   )}
                                 </div>
                               ))}
@@ -2680,32 +2848,32 @@ export default function BuyerDashboard() {
 
                       {/* Negotiation History UI */}
                       {viewingContract.history && viewingContract.history.length > 0 && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3">
-                          <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-semibold">Negotiation History ({viewingContract.history.length} previous rounds)</h4>
-                          <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-3">
+                          <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Negotiation History ({viewingContract.history.length} previous rounds)</h4>
+                          <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
                             {viewingContract.history.map((hist: any) => (
-                              <div key={hist.id} className="p-3 bg-brandy/5 border border-brandy/20 rounded-xl text-xs space-y-1.5">
-                                <div className="flex justify-between items-center border-b border-brandy/10 pb-1">
-                                  <span className="font-bold text-pine">Round {hist.revision}</span>
-                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                    hist.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                                    hist.status === "CANCELLED" ? "bg-gray-150 text-gray-500" :
+                              <div key={hist.id} className="p-4 bg-white border border-[#E2E8E3] rounded-xl text-xs space-y-2 shadow-sm">
+                                <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-1.5">
+                                  <span className="font-bold text-[#17251B]">Round {hist.revision}</span>
+                                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
+                                    hist.status === "REJECTED" ? "bg-[#FEE2E2] text-[#DC2626]" :
+                                    hist.status === "CANCELLED" ? "bg-gray-100 text-gray-600" :
                                     "bg-gray-100 text-gray-700"
                                   }`}>
                                     {hist.status.replace("_", " ")}
                                   </span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 text-[10px] text-kombu/70">
-                                  <div>Proposed Price: <strong className="text-pine">₹{hist.proposedPrice.toLocaleString("en-IN")}</strong></div>
-                                  <div>Area: <strong>{hist.landArea} Acres</strong></div>
-                                  <div>Harvest Date: <strong>{new Date(hist.expectedHarvestDate).toLocaleDateString()}</strong></div>
-                                  <div>Quantity: <strong>{hist.allocatedQuantity.toFixed(1)} Tonnes</strong></div>
+                                <div className="grid grid-cols-2 gap-2 text-xs text-[#647067]">
+                                  <div>Proposed Price: <strong className="text-[#166534]">₹{hist.proposedPrice.toLocaleString("en-IN")}</strong></div>
+                                  <div>Area: <strong className="text-[#17251B]">{hist.landArea} Acres</strong></div>
+                                  <div>Harvest Date: <strong className="text-[#17251B]">{new Date(hist.expectedHarvestDate).toLocaleDateString()}</strong></div>
+                                  <div>Quantity: <strong className="text-[#17251B]">{hist.allocatedQuantity.toFixed(1)} Tonnes</strong></div>
                                 </div>
                                 {hist.notes && (
-                                  <p className="text-[10px] text-kombu/60 italic">Buyer Note: "{hist.notes}"</p>
+                                  <p className="text-[10px] text-[#647067] italic">Buyer Note: "{hist.notes}"</p>
                                 )}
                                 {hist.rejectionReason && (
-                                  <p className="text-[10px] text-red-655 bg-red-50 p-1.5 rounded">Rejection Reason: "{hist.rejectionReason}"</p>
+                                  <p className="text-[10px] text-[#DC2626] bg-[#FEE2E2] p-2 rounded-lg">Rejection Reason: "{hist.rejectionReason}"</p>
                                 )}
                               </div>
                             ))}
@@ -2716,34 +2884,33 @@ export default function BuyerDashboard() {
                   )}
 
                   {activeDetailTab === "Monitoring" && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      {/* Contract Monitoring & Alerts (Buyer View) */}
+                    <div className="space-y-6 animate-in fade-in duration-200">
                       {viewingContractOverview && (
-                        <div className="bg-brandy/5 border border-brandy/20 p-5 rounded-2xl space-y-3 text-xs">
-                          <div className="flex justify-between items-center border-b border-brandy/10 pb-2">
-                            <h4 className="text-xs font-bold text-pine uppercase tracking-wider font-bold">Contract Alert Summary</h4>
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                              viewingContractOverview.activeAlertCount > 0 ? "bg-red-100 text-red-700" : "bg-dingley/20 text-pine"
+                        <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-6 rounded-2xl space-y-4 text-xs">
+                          <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-3">
+                            <h4 className="text-xs font-bold text-[#17251B] uppercase tracking-wider">Contract Alert Summary</h4>
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded font-bold ${
+                              viewingContractOverview.activeAlertCount > 0 ? "bg-[#FEE2E2] text-[#DC2626]" : "bg-[#ECFDF3] text-[#166534]"
                             }`}>
                               {viewingContractOverview.activeAlertCount} Issue{viewingContractOverview.activeAlertCount !== 1 ? "s" : ""} Active
                             </span>
                           </div>
 
                           {viewingContractOverview.activeAlertCount > 0 ? (
-                            <div className="space-y-2.5">
+                            <div className="space-y-3">
                               {viewingContractOverview.monitoringAlertsSummary.map((alert: any) => {
                                 const alertColors = 
-                                  alert.severity === "CRITICAL" ? "bg-red-50 text-red-800 border-red-200" :
-                                  alert.severity === "WARNING" ? "bg-amber-50 text-amber-805 border-amber-200" :
-                                  "bg-blue-50 text-blue-800 border-blue-200";
+                                  alert.severity === "CRITICAL" ? "bg-[#FEE2E2] text-[#DC2626] border-[#DC2626]/30" :
+                                  alert.severity === "WARNING" ? "bg-[#FEF3C7] text-[#F59E0B] border-[#F59E0B]/30" :
+                                  "bg-blue-50 text-[#2563EB] border-blue-200";
 
                                 return (
-                                  <div key={alert.id || alert.message} className={`p-3 rounded-xl border flex items-start gap-2.5 ${alertColors}`}>
-                                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                  <div key={alert.id || alert.message} className={`p-4 rounded-xl border flex items-start gap-3 ${alertColors}`}>
+                                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                                     <div>
-                                      <p className="font-bold text-[11.5px]">{alert.message}</p>
+                                      <p className="font-bold text-xs">{alert.message}</p>
                                       {alert.milestone && (
-                                        <p className="text-[9.5px] opacity-80 mt-0.5">Stage: {alert.milestone}</p>
+                                        <p className="text-[10px] opacity-80 mt-0.5">Stage: {alert.milestone}</p>
                                       )}
                                     </div>
                                   </div>
@@ -2751,7 +2918,7 @@ export default function BuyerDashboard() {
                               })}
                             </div>
                           ) : (
-                            <div className="p-3 bg-white/60 border border-brandy/10 rounded-xl text-center text-kombu/60 italic font-medium">
+                            <div className="p-4 bg-white border border-[#E2E8E3] rounded-xl text-center text-[#647067] italic font-medium">
                               Everything is running on track! No milestones or harvests are delayed.
                             </div>
                           )}
@@ -2761,18 +2928,26 @@ export default function BuyerDashboard() {
                   )}
                 </div>
 
-                {/* Footer close button */}
-                <div className="flex justify-end pt-2 border-t border-brandy/10 shrink-0">
+                {/* Modal Fixed Footer */}
+                <div className="px-6 sm:px-8 py-4 border-t border-[#E2E8E3] flex justify-end shrink-0 bg-white rounded-b-2xl">
                   <button
-                    onClick={() => setViewingContractId(null)}
-                    className="px-5 py-2.5 bg-pine hover:bg-kombu text-brandy font-bold rounded-xl shadow-md text-xs cursor-pointer animate-in fade-in"
+                    onClick={() => closeContractModal()}
+                    className="px-6 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl shadow-sm text-xs cursor-pointer transition-all"
                   >
                     Close View
                   </button>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-copper font-semibold">Error displaying contract details.</p>
+              <div className="p-8 text-center space-y-4">
+                <p className="text-xs text-[#DC2626] font-semibold">Error displaying contract details.</p>
+                <button
+                  onClick={() => closeContractModal()}
+                  className="px-4 py-2 bg-[#166534] text-white text-xs font-bold rounded-xl"
+                >
+                  Close
+                </button>
+              </div>
             )}
           </div>
         </div>

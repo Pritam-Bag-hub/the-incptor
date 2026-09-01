@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Building2, Sprout, ClipboardCheck, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Building2, Sprout, ClipboardCheck, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Role = "buyer" | "farmer" | "worker";
 
@@ -47,7 +48,10 @@ export default function RoleSelectionPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 sm:p-12 transition-colors duration-300">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 sm:p-12 transition-colors duration-300 relative">
+      <Link href="/" className="absolute top-6 left-6 text-pine hover:text-dingley font-semibold transition-colors flex items-center gap-2 z-20 text-sm">
+        <ArrowLeft className="w-4 h-4" /> Back to Home
+      </Link>
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-dingley/10 blur-3xl" />

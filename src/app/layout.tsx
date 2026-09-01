@@ -17,7 +17,11 @@ export const metadata: Metadata = {
   description: "AI-powered digital platform for contract farming",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"

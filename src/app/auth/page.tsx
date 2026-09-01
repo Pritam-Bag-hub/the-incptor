@@ -193,7 +193,7 @@ export default function AuthPage() {
         <div className="absolute bottom-[10%] right-[10%] w-[50%] h-[50%] rounded-full bg-brandy/20 blur-3xl" />
       </div>
 
-      <Link href="/" className="absolute top-6 left-6 text-pine hover:text-dingley font-semibold transition-colors flex items-center gap-2 z-20">
+      <Link href="/roles" className="absolute top-6 left-6 text-pine hover:text-dingley font-semibold transition-colors flex items-center gap-2 z-20">
         <ArrowRight className="w-5 h-5 rotate-180" /> Back to Role Selection
       </Link>
 

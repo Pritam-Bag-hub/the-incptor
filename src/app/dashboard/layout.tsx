@@ -68,6 +68,23 @@ export default function DashboardLayout({
     checkAuth();
   }, [pathname, router]);
 
+  const handleHeaderBack = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("dashboard-reset-view"));
+    }
+    if (user?.role === "BUYER") {
+      router.push("/dashboard/buyer");
+    } else if (user?.role === "LANDOWNER") {
+      router.push("/dashboard/farmer");
+    } else if (user?.role === "WORKER") {
+      router.push("/dashboard/worker");
+    } else if (user?.role === "ADMIN") {
+      router.push("/admin");
+    } else {
+      router.push("/roles");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -92,15 +109,17 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-background text-pine flex flex-col">
       <nav className="bg-white border-b border-brandy/30 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/"
-                className="p-2 rounded-lg hover:bg-brandy/20 transition-colors"
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleHeaderBack}
+                className="p-2 rounded-xl hover:bg-brandy/20 text-kombu/70 hover:text-pine transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Back to Previous Page"
               >
-                <ArrowLeft className="w-5 h-5 text-kombu/60" />
-              </Link>
+                <ArrowLeft className="w-5 h-5" />
+                <span className="hidden sm:inline text-xs font-bold">Back</span>
+              </button>
               <div className="flex items-center gap-2">
                 <LayoutDashboard className="w-6 h-6 text-kombu" />
                 <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-dingley to-kombu">
@@ -117,6 +136,13 @@ export default function DashboardLayout({
                   {userName}
                 </span>
               </div>
+              <Link
+                href="/"
+                className="hidden sm:inline-block px-3 py-1.5 border border-brandy/40 hover:bg-brandy/10 text-pine text-xs font-bold rounded-xl transition-all"
+                title="Exit to Landing Page"
+              >
+                Home
+              </Link>
               <button
                 onClick={handleLogout}
                 className="px-3.5 py-1.5 bg-copper hover:bg-copper/90 text-white text-xs font-bold rounded-xl transition-all shadow-sm hover:shadow-md cursor-pointer"
@@ -127,7 +153,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </nav>
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 w-full mx-auto">
         {children}
       </main>
     </div>
