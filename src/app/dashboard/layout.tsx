@@ -33,16 +33,25 @@ export default function DashboardLayout({
         setUser(data.user);
 
         // Role verification and routing restriction
-        const role = data.user.role; // BUYER, LANDOWNER, WORKER, ADMIN
+        const role = data.user.role;
         const buyerPath = "/dashboard/buyer";
         const farmerPath = "/dashboard/farmer";
         const workerPath = "/dashboard/worker";
+        const inspectorPath = "/dashboard/inspector";
+        const centerManagerPath = "/dashboard/center-manager";
+        const transporterPath = "/dashboard/transporter";
 
         if (pathname.startsWith(buyerPath) && role !== "BUYER") {
           redirectToCorrectDashboard(role);
         } else if (pathname.startsWith(farmerPath) && role !== "LANDOWNER") {
           redirectToCorrectDashboard(role);
         } else if (pathname.startsWith(workerPath) && role !== "WORKER") {
+          redirectToCorrectDashboard(role);
+        } else if (pathname.startsWith(inspectorPath) && role !== "INSPECTOR") {
+          redirectToCorrectDashboard(role);
+        } else if (pathname.startsWith(centerManagerPath) && role !== "CENTER_MANAGER") {
+          redirectToCorrectDashboard(role);
+        } else if (pathname.startsWith(transporterPath) && role !== "TRANSPORTER") {
           redirectToCorrectDashboard(role);
         } else {
           setLoading(false);
@@ -62,6 +71,14 @@ export default function DashboardLayout({
         router.push("/dashboard/worker");
       } else if (role === "ADMIN") {
         router.push("/admin");
+      } else if (role === "INSPECTOR") {
+        router.push("/dashboard/inspector");
+      } else if (role === "CENTER_MANAGER") {
+        router.push("/dashboard/center-manager");
+      } else if (role === "TRANSPORTER") {
+        router.push("/dashboard/transporter");
+      } else {
+        router.push("/roles");
       }
     }
 
@@ -80,6 +97,12 @@ export default function DashboardLayout({
       router.push("/dashboard/worker");
     } else if (user?.role === "ADMIN") {
       router.push("/admin");
+    } else if (user?.role === "INSPECTOR") {
+      router.push("/dashboard/inspector");
+    } else if (user?.role === "CENTER_MANAGER") {
+      router.push("/dashboard/center-manager");
+    } else if (user?.role === "TRANSPORTER") {
+      router.push("/dashboard/transporter");
     } else {
       router.push("/roles");
     }

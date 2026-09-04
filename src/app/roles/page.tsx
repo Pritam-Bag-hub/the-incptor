@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Building2, Sprout, ClipboardCheck, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Building2, Sprout, ClipboardCheck, ShieldCheck, Warehouse, Truck, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-type Role = "buyer" | "farmer" | "worker";
+type Role = "buyer" | "farmer" | "worker" | "inspector" | "center_manager" | "transporter";
 
 export default function RoleSelectionPage() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -45,6 +45,33 @@ export default function RoleSelectionPage() {
       border: "border-brandy hover:border-copper",
       activeBorder: "border-copper ring-2 ring-copper/20",
     },
+    {
+      id: "inspector" as Role,
+      title: "Quality Inspector",
+      description: "Physical quality inspections, produce grading, moisture checks, and quality flags.",
+      icon: <ShieldCheck className="w-8 h-8 mb-4 text-emerald-700" />,
+      gradient: "from-emerald-500/5 to-emerald-500/10 hover:from-emerald-500/10 hover:to-emerald-500/20",
+      border: "border-brandy hover:border-emerald-700",
+      activeBorder: "border-emerald-700 ring-2 ring-emerald-700/20",
+    },
+    {
+      id: "center_manager" as Role,
+      title: "Center Manager",
+      description: "Receive harvest produce, log scale net weights, and manage collection hub operations.",
+      icon: <Warehouse className="w-8 h-8 mb-4 text-amber-700" />,
+      gradient: "from-amber-500/5 to-amber-500/10 hover:from-amber-500/10 hover:to-amber-500/20",
+      border: "border-brandy hover:border-amber-700",
+      activeBorder: "border-amber-700 ring-2 ring-amber-700/20",
+    },
+    {
+      id: "transporter" as Role,
+      title: "Transporter / Driver",
+      description: "View assigned multi-vehicle route optimization, capacities, and produce shipments.",
+      icon: <Truck className="w-8 h-8 mb-4 text-indigo-700" />,
+      gradient: "from-indigo-500/5 to-indigo-500/10 hover:from-indigo-500/10 hover:to-indigo-500/20",
+      border: "border-brandy hover:border-indigo-700",
+      activeBorder: "border-indigo-700 ring-2 ring-indigo-700/20",
+    },
   ];
 
   return (
@@ -58,7 +85,7 @@ export default function RoleSelectionPage() {
         <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-brandy/20 blur-3xl" />
       </div>
 
-      <div className="max-w-4xl w-full z-10">
+      <div className="max-w-5xl w-full z-10">
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-pine mb-4">
             Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-dingley to-kombu">AgriContract AI</span>
@@ -68,7 +95,7 @@ export default function RoleSelectionPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {roles.map((role) => {
             const isActive = selectedRole === role.id;
             return (
@@ -95,6 +122,9 @@ export default function RoleSelectionPage() {
                   <CheckCircle2 className={`w-6 h-6 ${
                     role.id === "buyer" ? "text-kombu" :
                     role.id === "farmer" ? "text-dingley" :
+                    role.id === "inspector" ? "text-emerald-700" :
+                    role.id === "center_manager" ? "text-amber-700" :
+                    role.id === "transporter" ? "text-indigo-700" :
                     "text-copper"
                   }`} />
                 </div>

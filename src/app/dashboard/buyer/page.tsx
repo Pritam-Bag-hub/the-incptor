@@ -199,6 +199,7 @@ export default function BuyerDashboard() {
   const [loadingFinancials, setLoadingFinancials] = useState(false);
   const [financialsLoadError, setFinancialsLoadError] = useState("");
   const [activeDetailTab, setActiveDetailTab] = useState<"Overview" | "Financials" | "Yield" | "Milestones" | "Tasks" | "Progress" | "Monitoring">("Overview");
+  const [viewingContractReceipts, setViewingContractReceipts] = useState<any[]>([]);
 
   // Financial allocations editing states
   const [editLandownerAmount, setEditLandownerAmount] = useState("");
@@ -494,6 +495,9 @@ export default function BuyerDashboard() {
       if (selectedDemandId) {
         fetchDemandContracts(selectedDemandId);
       }
+      if (viewingContractId === contractId) {
+        fetchContractDetails(contractId);
+      }
     } catch (err: any) {
       alert(err.message || "Could not activate contract.");
     }
@@ -584,14 +588,20 @@ export default function BuyerDashboard() {
           const tRes = await fetch(`/api/contracts/${contractId}/tasks`);
           if (tRes.ok) {
             setViewingContractTasks(await tRes.json());
-          } else {
-            const err = await tRes.json();
-            setTasksLoadError(err.error || "Failed to load crop tasks.");
           }
         } catch (e: any) {
           setTasksLoadError(e.message || "Failed to fetch tasks.");
         } finally {
           setLoadingTasks(false);
+        }
+
+        try {
+          const rRes = await fetch(`/api/contracts/${contractId}/receipts`);
+          if (rRes.ok) {
+            setViewingContractReceipts(await rRes.json());
+          }
+        } catch (e) {
+          console.error("Error fetching receipts:", e);
         }
       }
     } catch (err) {
@@ -1790,12 +1800,20 @@ export default function BuyerDashboard() {
                                     </span>
                                     
                                     {contract.status === "PENDING_APPROVAL" && (
-                                      <button
-                                        onClick={() => handleCancelContract(contract.id)}
-                                        className="text-[10px] font-bold text-[#DC2626] hover:underline cursor-pointer"
-                                      >
-                                        Cancel Proposal
-                                      </button>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => setShowActivateConfirmId(contract.id)}
+                                          className="text-[10px] font-bold bg-[#166534] hover:bg-[#14532d] text-white px-2 py-0.5 rounded cursor-pointer transition-all shadow-2xs"
+                                        >
+                                          Accept Contract
+                                        </button>
+                                        <button
+                                          onClick={() => handleCancelContract(contract.id)}
+                                          className="text-[10px] font-bold text-[#DC2626] hover:underline cursor-pointer"
+                                        >
+                                          Cancel Proposal
+                                        </button>
+                                      </div>
                                     )}
 
                                     {(contract.status === "REJECTED" || contract.status === "CANCELLED") && (
@@ -2006,7 +2024,7 @@ export default function BuyerDashboard() {
                     <div>
                       <span className="text-[#647067] block uppercase font-bold tracking-wider mb-1">Area & Quantity</span>
                       <p className="font-bold text-[#17251B] text-sm">{contract.landArea} Acres</p>
-                      <p className="text-[#647067] mt-0.5">Allocated Yield: {contract.allocatedQuantity.toFixed(1)} Tonnes</p>
+                      <p className="text-[#647067] mt-0.5">Target Agreed Yield: {contract.allocatedQuantity} {contract.demand?.quantityUnit || "TONNE"}</p>
                     </div>
 
                     <div>
@@ -2040,12 +2058,20 @@ export default function BuyerDashboard() {
 
                   <div className="bg-[#F6F8F3] px-5 py-3 border-t border-[#E2E8E3] flex flex-wrap items-center justify-end gap-3">
                     {contract.status === "PENDING_APPROVAL" && (
-                      <button
-                        onClick={() => handleCancelContract(contract.id)}
-                        className="px-4 py-2 border border-[#DC2626] text-[#DC2626] font-bold rounded-xl hover:bg-[#FEE2E2] text-xs transition-all cursor-pointer"
-                      >
-                        Cancel Proposal
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleCancelContract(contract.id)}
+                          className="px-4 py-2 border border-[#DC2626] text-[#DC2626] font-bold rounded-xl hover:bg-[#FEE2E2] text-xs transition-all cursor-pointer"
+                        >
+                          Cancel Proposal
+                        </button>
+                        <button
+                          onClick={() => setShowActivateConfirmId(contract.id)}
+                          className="px-4 py-2 bg-[#166534] text-white hover:bg-[#14532d] font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+                        >
+                          Accept Contract
+                        </button>
+                      </>
                     )}
                     {contract.status === "ACCEPTED" && (
                       <button
@@ -2348,6 +2374,25 @@ export default function BuyerDashboard() {
                 <div className="flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 space-y-6">
                   {activeDetailTab === "Overview" && (
                     <div className="space-y-6 animate-in fade-in duration-200">
+                      {/* Pending Proposal Approval Banner */}
+                      {viewingContract.status === "PENDING_APPROVAL" && (
+                        <div className="bg-[#FEF3C7] border border-[#F59E0B]/40 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <h4 className="text-sm font-bold text-[#92400E]">Pending Proposal Approval</h4>
+                            <p className="text-xs text-[#B45309] mt-0.5">
+                              This contract proposal is awaiting your acceptance to officially activate the agreement.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowActivateConfirmId(viewingContract.id)}
+                            className="px-5 py-2.5 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-xl text-xs transition-all shadow-sm shrink-0 cursor-pointer"
+                          >
+                            Accept Contract
+                          </button>
+                        </div>
+                      )}
+
                       {/* Timeline Tracker */}
                       <div className="bg-[#F6F8F3] border border-[#E2E8E3] p-5 rounded-2xl space-y-4">
                         <div className="flex justify-between items-center border-b border-[#E2E8E3] pb-2">
@@ -2593,12 +2638,18 @@ export default function BuyerDashboard() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-[#E2E8E3]">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-5 rounded-xl border border-[#E2E8E3]">
                             <div>
-                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5 uppercase">Estimated Production Yield</span>
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5 uppercase">Target Agreed Yield</span>
+                              <span className="font-extrabold text-[#17251B] text-base">
+                                {viewingContract.allocatedQuantity} {viewingContract.demand?.quantityUnit || "TONNE"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-[#647067] block font-semibold mb-0.5 uppercase">Est. Agronomic Yield</span>
                               <span className="font-extrabold text-[#17251B] text-base">
                                 {viewingContractOverview.yieldSummary.estimatedQuantity !== null
-                                  ? `${viewingContractOverview.yieldSummary.estimatedQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
+                                  ? `${viewingContractOverview.yieldSummary.estimatedQuantity} ${viewingContractOverview.yieldSummary.unit || viewingContract.demand?.quantityUnit || "TONNE"}`
                                   : "Calculating..."}
                               </span>
                             </div>
@@ -2606,7 +2657,7 @@ export default function BuyerDashboard() {
                               <span className="text-[10px] text-[#647067] block font-semibold mb-0.5 uppercase">Recorded Harvest Yield</span>
                               <span className="font-extrabold text-[#166534] text-base">
                                 {viewingContractOverview.yieldSummary.actualQuantity !== null
-                                  ? `${viewingContractOverview.yieldSummary.actualQuantity.toFixed(2)} ${viewingContract.demand?.quantityUnit || "Tonnes"}`
+                                  ? `${viewingContractOverview.yieldSummary.actualQuantity} ${viewingContractOverview.yieldSummary.unit || viewingContract.demand?.quantityUnit || "TONNE"}`
                                   : "Awaiting Harvest..."}
                               </span>
                             </div>

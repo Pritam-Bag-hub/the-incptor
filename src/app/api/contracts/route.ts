@@ -188,19 +188,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (user.role !== "BUYER") {
-      return NextResponse.json({ error: "Forbidden: Buyer role required" }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const demandId = searchParams.get("demandId");
 
-    const queryConditions: any = {
-      buyerId: user.id,
-    };
+    const queryConditions: any = {};
 
-    if (demandId) {
-      queryConditions.demandId = demandId;
+    if (user.role === "BUYER") {
+      queryConditions.buyerId = user.id;
+      if (demandId) {
+        queryConditions.demandId = demandId;
+      }
+    } else if (user.role === "WORKER" || user.role === "ADMIN") {
+      queryConditions.status = "ACTIVE";
+    } else if (user.role === "LANDOWNER") {
+      queryConditions.landownerId = user.id;
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const contracts = await db.contract.findMany({

@@ -40,3 +40,61 @@ export async function GET(
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: contractId } = await params;
+    const body = await request.json();
+    const { issueType, description, severity } = body;
+
+    if (!issueType || !description) {
+      return NextResponse.json({ error: "issueType and description are required." }, { status: 400 });
+    }
+
+    const contract = await db.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      return NextResponse.json({ error: "Contract not found." }, { status: 404 });
+    }
+
+    const title = `Field Worker Issue Report: ${issueType}`;
+    const alertType = issueType.toLowerCase().includes("quality") ? "QUALITY_FLAG" : "PROGRESS_DELAY";
+    const alertSeverity = severity === "CRITICAL" ? "CRITICAL" : "WARNING";
+
+    const alert = await db.contractAlert.upsert({
+      where: {
+        contractId_type_title: {
+          contractId,
+          type: alertType as any,
+          title,
+        },
+      },
+      create: {
+        contractId,
+        type: alertType as any,
+        severity: alertSeverity as any,
+        title,
+        message: `Reported by ${user.name || "Field Worker"}: ${description}`,
+      },
+      update: {
+        message: `Reported by ${user.name || "Field Worker"}: ${description}`,
+        isResolved: false,
+      },
+    });
+
+    return NextResponse.json({ success: true, alert }, { status: 201 });
+  } catch (error: any) {
+    console.error("POST Alert Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

@@ -1,12 +1,13 @@
 {
-  "name": "ps33_rudra",
+  "name": "agrigrowth",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "ts-node --project tsconfig.test.json tests/run_all.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",

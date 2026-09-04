@@ -148,6 +148,7 @@ export async function GET(
         ? {
             estimatedQuantity: contract.yield.estimatedQuantity,
             actualQuantity: contract.yield.actualQuantity,
+            unit: contract.yield.unit,
             fulfillmentPercentage: contract.yield.fulfillmentPercentage,
             fulfillmentStatus: contract.yield.fulfillmentStatus,
           }

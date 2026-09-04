@@ -2,50 +2,108 @@
 
 ## Product Requirements Document (PRD)
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Status:** MVP Development  
-**Technology Direction:** Next.js + TypeScript + Backend APIs + Database + AI Services
+**Technology Direction:** Next.js + TypeScript + Backend APIs + Database + AI Services + Weather Services + Map/Geolocation + Logistics Intelligence
 
 ---
 
 # 1. Product Vision
 
-AgriContract AI is a digital agricultural contract platform that connects:
+AgriContract AI is a digital demand-to-delivery agricultural coordination platform that connects:
 
 - Buyers / Companies
-- Landowners
+- Landowners / Producers
 - Farmers / Agricultural Workers
+- Future FPO support
+- Logistics operations
 - Platform Administrators
 
-The platform helps buyers secure agricultural production, landowners utilize available land, workers receive farming jobs, and administrators manage contracts, verification, payments, and risks.
+The platform helps buyers secure agricultural production, landowners utilize available land, workers receive farming jobs, producers connect production with demand, and administrators manage contracts, verification, payments, risks, harvest, and logistics.
+
+The expanded objective is to reduce unnecessary intermediaries and create a connected agricultural workflow from demand to production and final delivery.
 
 The core workflow is:
 
-Buyer creates crop demand
+Market / Buyer Demand
+
 ↓
-Platform calculates suitable land requirements
+
+Demand Analysis and Planning
+
 ↓
-Available landowners receive relevant contract opportunities
+
+Platform calculates suitable production and land requirements
+
 ↓
+
+Available landowners / producers receive relevant opportunities
+
+↓
+
 Landowner accepts a contract
+
 ↓
+
 Contract becomes active
+
 ↓
+
 Crop timeline and farming tasks are generated
+
 ↓
+
 Required workers are notified when their work stage arrives
+
 ↓
+
 Workers perform tasks
+
 ↓
+
 GPS + photo evidence is submitted
+
 ↓
+
 Weather and AI systems analyze conditions
+
 ↓
+
 Buyer monitors production
+
 ↓
-Admin monitors risks and disputes
+
+Harvest is confirmed
+
 ↓
-Payments are distributed after verification
+
+Pickup request is generated
+
+↓
+
+Suitable vehicle is matched
+
+↓
+
+Nearby pickups may be grouped
+
+↓
+
+Route is recommended
+
+↓
+
+Produce is collected and delivered
+
+↓
+
+Delivery is confirmed
+
+↓
+
+Payments and settlement are processed
+
+The platform acts as an intelligence and coordination layer. It does not need to own farms, vehicles, or logistics infrastructure.
 
 ---
 
@@ -55,19 +113,40 @@ Agricultural supply chains often have several disconnected participants.
 
 Buyers need reliable crop production but may not directly control farms.
 
-Landowners may have available agricultural land but lack guaranteed buyers.
+Landowners and producers may have available agricultural land but lack guaranteed buyers.
 
 Farmers and agricultural workers may struggle to find organized, predictable work.
 
 Crop production monitoring is often manual and difficult to verify.
 
-The platform solves this by creating a connected digital ecosystem for agricultural contracts, land allocation, workforce management, crop monitoring, evidence verification, and payment tracking.
+Harvested produce may face inefficient collection and transportation.
+
+Multiple small pickups can increase logistics costs.
+
+Perishable produce may lose value because of transportation delays.
+
+Multiple intermediaries may reduce producer earnings and increase prices for buyers or consumers.
+
+The platform solves this by creating a connected digital ecosystem for:
+
+- Demand planning
+- Agricultural production
+- Land allocation
+- Contract farming
+- Workforce management
+- Crop monitoring
+- Evidence verification
+- Harvest coordination
+- Smart pickup
+- Logistics coordination
+- Route optimization
+- Payment tracking
 
 ---
 
 # 3. User Roles
 
-The platform will have four primary roles.
+The platform will initially have four primary roles.
 
 ## 3.1 Buyer
 
@@ -79,12 +158,35 @@ The buyer may be:
 - Processing company
 - Exporter
 - Large agricultural purchaser
+- Bulk buyer
+- Institution
+- Distributor
 
-The buyer creates crop demand and contracts land through the platform.
+The buyer creates crop demand and contracts production through the platform.
 
-## 3.2 Landowner
+The buyer should be able to:
+
+- Create crop demand
+- Select crop category
+- Select crop
+- Enter required quantity
+- Select production or delivery location
+- View available and suitable land
+- Select one or multiple land parcels
+- Submit contract proposals
+- Monitor production
+- Monitor milestones
+- View estimated production
+- View harvest readiness
+- Track pickup and delivery
+- Confirm delivery
+- Track payment status
+
+## 3.2 Landowner / Producer
 
 The landowner owns or manages agricultural land.
+
+For the MVP, a landowner and producer may share the same core role.
 
 The landowner can:
 
@@ -94,7 +196,16 @@ The landowner can:
 - Accept or reject offers
 - Monitor crop progress
 - Coordinate workers
+- Confirm harvest readiness
+- View pickup status
 - Receive contract-related payments
+
+Future versions may support:
+
+- Individual farmers
+- Producer groups
+- FPOs
+- Multiple land parcels under one organization
 
 ## 3.3 Farmer / Agricultural Worker
 
@@ -105,10 +216,22 @@ Workers perform agricultural jobs such as:
 - Fertilizer application
 - Irrigation
 - Pest treatment
+- Crop monitoring
 - Harvesting
 - Post-harvest work
 
 Workers receive jobs according to crop stage and workforce requirements.
+
+Workers can:
+
+- View available jobs
+- View assigned jobs
+- Accept or decline jobs
+- View work location
+- Perform GPS check-in
+- Upload work evidence
+- Submit task completion
+- View payment information
 
 ## 3.4 Admin
 
@@ -121,8 +244,13 @@ The platform administrator manages:
 - Commission
 - Worker requirement rules
 - AI alerts
+- Weather alerts
 - Disputes
 - Verification
+- Harvest monitoring
+- Logistics records
+- Vehicle records
+- Route plans
 - Platform monitoring
 
 ---
@@ -131,52 +259,138 @@ The platform administrator manages:
 
 The complete workflow should be:
 
-Buyer
+Buyer / Market
+
 ↓
+
 Select category
+
 ↓
+
 Select crop
+
 ↓
+
 Enter quantity required
+
 ↓
-Select production location on map
+
+Select production or delivery location on map
+
 ↓
+
+System estimates required production and land
+
+↓
+
+Demand intelligence may provide additional production guidance
+
+↓
+
 System identifies suitable and available land
+
 ↓
+
 Buyer selects one or multiple land parcels
+
 ↓
+
 Buyer submits contract request and proposed amount
+
 ↓
+
 Admin/platform validates the request
+
 ↓
+
 Relevant landowners receive the contract opportunity
+
 ↓
+
 Landowner accepts or declines
+
 ↓
+
 Contract becomes active
+
 ↓
+
 Crop plan and timeline are generated
+
 ↓
+
 Worker requirements are calculated by crop stage
+
 ↓
+
 Workers receive job notifications when required
+
 ↓
+
 Workers perform tasks
+
 ↓
+
 GPS and photo evidence are submitted
+
 ↓
+
 AI and rule-based systems analyze evidence and progress
+
 ↓
+
 Buyer, landowner and admin receive relevant updates
+
 ↓
+
 Crop progresses through stages
+
 ↓
+
 Harvest is completed
+
 ↓
+
+Harvest quantity and quality evidence are confirmed
+
+↓
+
+Pickup request is generated
+
+↓
+
+Suitable vehicle is selected or recommended
+
+↓
+
+Nearby pickups may be grouped
+
+↓
+
+Optimized or recommended collection route is generated
+
+↓
+
+Produce is collected
+
+↓
+
+Produce is transported
+
+↓
+
+Buyer confirms delivery
+
+↓
+
 Final verification occurs
+
 ↓
+
 Payments and commission are processed
+
 ↓
+
 Contract is completed
 
 ---
@@ -191,6 +405,8 @@ After login, the buyer should see a dashboard containing:
 - Estimated production
 - At-risk contracts
 - Upcoming milestones
+- Harvest status
+- Delivery status
 - Payment status
 - Notifications
 
@@ -199,20 +415,58 @@ The buyer should be able to create a new crop demand.
 Workflow:
 
 Choose Category
+
 ↓
+
 Choose Crop
+
 ↓
+
 Enter Required Quantity
+
 ↓
+
 Select Production Location
+
 ↓
+
+Optionally select delivery destination
+
+↓
+
+View estimated required land
+
+↓
+
 View Available Land on Map
+
 ↓
+
 Select One or Multiple Land Parcels
+
 ↓
+
 Enter Contract Financial Proposal
+
 ↓
+
 Submit Contract Request
+
+After harvest:
+
+View Harvest Availability
+
+↓
+
+Track Pickup
+
+↓
+
+Track Delivery
+
+↓
+
+Confirm Receipt
 
 ---
 
@@ -233,16 +487,19 @@ After selecting a category, relevant crops should be displayed.
 Example:
 
 Grains:
+
 - Paddy
 - Wheat
 - Maize
 
 Vegetables:
+
 - Potato
 - Tomato
 - Onion
 
 Fruits:
+
 - Mango
 - Banana
 
@@ -257,6 +514,7 @@ The buyer enters the required crop quantity.
 Example:
 
 Required quantity:
+
 100 tonnes of paddy
 
 The system should estimate how much land is required.
@@ -273,452 +531,531 @@ The calculation may use:
 Example:
 
 Required Production / Expected Yield per Acre
+
 =
+
 Estimated Required Land Area
 
 This should initially use configurable rule-based estimates.
 
-Later, AI or predictive models can improve the estimate.
+The result must be clearly marked as an estimate.
 
 ---
 
-# 8. Map-Based Land Selection
+# 8. Land Registration and Availability
 
-After entering crop requirements, the buyer sees a map.
+Landowners should be able to register agricultural land.
 
-The map should display:
+Land information may include:
 
-- Available land parcels
-- Approximate location
-- Land area
+- Land name
+- Location
+- Address
+- Latitude
+- Longitude
+- Area
+- Unit
+- Availability
+- Status
+- Optional soil information
+- Optional irrigation information
+- Optional crop suitability information
+
+Land states:
+
+AVAILABLE
+
+↓
+
+RESERVED
+
+↓
+
+UNDER_CONTRACT
+
+↓
+
+AVAILABLE after completion if applicable
+
+The system must prevent conflicting active contracts for the same land when the selected area or availability period conflicts.
+
+---
+
+# 9. Land Matching and Selection
+
+The system should identify suitable land based on:
+
+- Location
+- Area
+- Availability
+- Crop requirements
+- Contract timeline
+- Distance from preferred production location
+- Future suitability information
+
+For MVP:
+
+Use rule-based matching.
+
+Possible match score inputs:
+
+- Distance score
+- Area suitability
+- Availability
 - Crop suitability
-- Availability status
-- Optional land score
+- Timeline compatibility
 
-The buyer can select:
+Example:
+
+Match Score:
+
+85%
+
+This score should be treated as a recommendation rather than a guarantee.
+
+The buyer may select:
 
 - One land parcel
 - Multiple land parcels
 
-The selected land should collectively help satisfy the required production quantity.
-
-The system should prevent selection of land that is:
-
-- Already under an active contract
-- Unavailable
-- Incompatible with the crop
-- Restricted by admin rules
+The total selected land should be compared with the estimated required land.
 
 ---
 
-# 9. Land Suitability Scoring
+# 10. Buyer Demand Management
 
-Each land parcel may receive a suitability score.
+A buyer demand should contain:
 
-Example:
-
-Suitability Score = 0 to 100
-
-Factors may include:
-
-- Soil information
-- Crop compatibility
-- Climate
-- Water availability
-- Historical crop information
-- Geographic region
-
-For the MVP, this can initially be rule-based.
-
-Example:
-
-Suitable crop region: +30
-Suitable soil: +25
-Adequate water availability: +20
-Good historical performance: +15
-Other factors: +10
-
-The score should not be presented as a scientifically guaranteed prediction unless validated data is available.
-
----
-
-# 10. Contract Offer System
-
-The buyer does not directly negotiate with the landowner.
-
-The buyer submits a contract request to the platform.
-
-The platform defines financial rules.
-
-Example:
-
-Admin-approved range:
-
-₹5,00,000
-to
-₹5,50,000
-
-The buyer selects or proposes an amount within the allowed range.
-
-The platform then sends relevant contract offers to landowners.
-
-Landowners can:
-
-- Accept
-- Decline
-
-For the MVP, there should not be open-ended negotiation between buyers and landowners.
-
-This simplifies contract management.
-
----
-
-# 11. Financial Allocation
-
-The total buyer contract amount should be divided logically.
-
-Example:
-
-Buyer Contract Amount
-↓
-Platform Commission
-↓
-Landowner Allocation
-↓
-Worker Budget
-↓
-Operational / Service Allocation if applicable
-
-Example:
-
-Total Contract Value = ₹10,00,000
-
-Platform Commission = configurable
-
-Remaining amount is allocated according to contract rules.
-
-The exact payment structure must be configurable by the admin.
-
-The system must not hardcode financial percentages directly into frontend components.
-
----
-
-# 12. Landowner Registration and Land Management
-
-The landowner should register:
-
-- Name
-- Contact information
-- Location
-- Land size
-- Land coordinates
-- Availability
-- Optional soil information
-- Optional irrigation information
-
-A land parcel should have statuses such as:
-
-- AVAILABLE
-- RESERVED
-- UNDER_CONTRACT
-- UNAVAILABLE
-
-The landowner dashboard should display:
-
-- Available land
-- Contract offers
-- Active contracts
-- Crop progress
-- Upcoming tasks
-- Worker requirements
-- Weather alerts
-- Payments
-
----
-
-# 13. Landowner Contract Workflow
-
-After login:
-
-Landowner Dashboard
-↓
-View Available Land
-↓
-Receive Relevant Crop Contract Offers
-↓
-Open Contract Details
-↓
-Review Crop
-↓
-Review Duration
-↓
-Review Land Requirement
-↓
-Review Financial Information
-↓
-Accept or Decline
-
-If accepted:
-
-Contract Status = ACTIVE
-
-The selected land becomes unavailable for conflicting contracts.
-
----
-
-# 14. Contract Fulfillment
-
-A contract should not become active until the required conditions are satisfied.
-
-Possible contract statuses:
-
-- DRAFT
-- SUBMITTED
-- UNDER_REVIEW
-- OFFERED
-- PARTIALLY_ACCEPTED
-- ACTIVE
-- AT_RISK
-- COMPLETED
-- CANCELLED
-- DISPUTED
-
-For contracts involving multiple land parcels, the system should track:
-
+- Buyer
+- Crop
+- Quantity
+- Preferred production location
+- Optional delivery location
 - Required production
-- Land accepted
-- Estimated production capacity
-- Remaining production requirement
+- Estimated land requirement
+- Selected land
+- Financial proposal
+- Required date
+- Expected harvest or delivery date
+- Status
 
-The contract may remain partially fulfilled until sufficient land is accepted.
+Possible statuses:
+
+DRAFT
+
+SUBMITTED
+
+MATCHING
+
+PARTIALLY_FULFILLED
+
+FULFILLED
+
+CANCELLED
+
+EXPIRED
 
 ---
 
-# 15. Crop Plan System
+# 11. Demand Intelligence and Forecasting
 
-Each crop should have a configurable crop plan.
+The platform may assist with estimating possible future crop demand.
 
-A crop plan contains:
+Inputs may include:
 
-- Crop name
-- Expected duration
-- Growth stages
-- Required activities
-- Evidence requirements
-- Worker requirements
-- Notification rules
+- Historical buyer demand
+- Current confirmed orders
+- Season
+- Region
+- Historical trends
+
+Example:
+
+Historical Demand
+
++
+
+Current Orders
+
++
+
+Seasonal Trend
+
+↓
+
+Estimated Future Demand
+
+↓
+
+Suggested Production Target
+
+For MVP:
+
+Use:
+
+- Historical averages
+- Seasonal rules
+- Configurable trends
+- Current demand
+
+Future versions may use machine learning or predictive models when sufficient historical data exists.
+
+The system must clearly distinguish:
+
+- Confirmed demand
+- Historical demand
+- Estimated demand
+- Predicted demand
+
+Predictions must never be presented as guaranteed demand.
+
+Demand forecasting is an assistance feature and should not block the normal buyer demand workflow.
+
+---
+
+# 12. Contract Proposal
+
+After selecting land, the buyer creates a contract proposal.
+
+The proposal may contain:
+
+- Buyer
+- Landowner
+- Crop
+- Required quantity
+- Selected land
+- Production timeline
+- Expected harvest date
+- Financial proposal
+- Payment structure
+- Terms
+- Special requirements
+
+The platform should validate:
+
+- Land availability
+- Buyer role
+- Landowner ownership
+- Quantity and land compatibility
+- Timeline conflicts
+- Duplicate active contracts
+
+---
+
+# 13. Contract Engine
+
+Contract workflow:
+
+DRAFT
+
+↓
+
+SUBMITTED
+
+↓
+
+OFFERED
+
+↓
+
+PARTIALLY_ACCEPTED if multiple land parcels are involved
+
+↓
+
+ACTIVE
+
+↓
+
+AT_RISK if necessary
+
+↓
+
+COMPLETED
+
+Alternative states:
+
+DECLINED
+
+CANCELLED
+
+DISPUTED
+
+The system should maintain a complete history of important contract status changes.
+
+---
+
+# 14. Contract Land Allocation
+
+A contract may contain:
+
+- One land parcel
+- Multiple land parcels
+
+Each ContractLand relationship should store:
+
+- Contract ID
+- Land ID
+- Allocated area
+- Landowner
+- Status
+- Acceptance status
+
+The system must ensure:
+
+- Allocated area does not exceed available area
+- Land is not double-booked
+- Conflicting active allocations are prevented
+
+---
+
+# 15. Crop Plan Generation
+
+When a contract becomes active, the system should generate or configure a crop plan.
+
+A crop plan may contain:
+
+- Crop
+- Duration
+- Stages
+- Milestones
+- Tasks
+- Expected dates
+- Workforce requirements
 
 Example stages:
 
-1. Preparation
-2. Planting
-3. Early Growth
-4. Vegetative Growth
-5. Reproductive / Flowering
-6. Maturity
-7. Harvest
-
-The timeline must be crop-specific.
-
-Different crops must not use the same fixed schedule.
-
----
-
-# 16. Adaptive Crop Timeline
-
-Each crop has a different duration.
-
-Example:
-
-Paddy may have one timeline.
-
-Wheat may have another.
-
-Tomato may have another.
-
-Therefore, tasks must be generated based on:
-
-Crop
-+
-Planting Date
-+
-Crop Stage Rules
-+
-Weather Conditions
-+
-Actual Progress
-
-The system should not simply say:
-
-Day 5 → same task for every crop.
-
-Instead:
-
-Crop Plan
-↓
-Planting Date
-↓
-Generate Initial Milestones
-↓
-Monitor Actual Conditions
-↓
-Adjust Future Tasks if Required
-
----
-
-# 17. Task and Milestone System
-
-A contract should generate milestones.
-
-Each milestone can contain:
-
-- Title
-- Description
-- Crop stage
-- Planned start date
-- Planned end date
-- Priority
-- Required workers
-- Evidence requirements
-- Status
-
-Example:
-
-Planting
-↓
-Upload evidence
-
-Fertilizer application
-↓
-Upload evidence if required
-
-Irrigation
-↓
-Can be automatically reviewed against weather
-
-Harvest
-↓
-GPS + evidence + completion verification
-
-Task statuses:
-
-- PENDING
-- UPCOMING
-- ACTIVE
-- COMPLETED
-- SKIPPED
-- DELAYED
-- UNDER_REVIEW
-
----
-
-# 18. Weather-Based Decision Logic
-
-Weather must affect agricultural task recommendations.
-
-Example:
-
-A scheduled irrigation task exists.
-
-The weather system detects heavy rainfall.
-
-The system should not blindly ask the worker to irrigate.
-
-Instead:
-
-Task: Irrigation
-↓
-Check Recent Rainfall
-↓
-Check Forecast
-↓
-Check Crop Stage
-↓
-Decision
-
-Possible decisions:
-
-- PROCEED
-- SKIP
-- DELAY
-- REVIEW
-
-Example:
-
-Heavy rainfall detected
-↓
-Irrigation unnecessary
-↓
-Task marked SKIPPED or DELAYED
-↓
-Landowner receives explanation
-
-The weather system should assist decisions, not automatically make unsafe agricultural decisions without configurable rules.
-
----
-
-# 19. Farmer / Worker Workforce Model
-
-Workers are not necessarily required every day.
-
-Different crop stages require different workforce levels.
-
-Example:
-
-Paddy:
-
-Preparation Stage:
-High worker requirement
-
-Planting Stage:
-High worker requirement
-
-Growing Stage:
-Low worker requirement
-
-Harvest Stage:
-High worker requirement
-
-Therefore, the system must calculate workers by:
-
-Crop
-+
-Stage
-+
-Land Area
-+
-Task Type
-+
-Configured Productivity Rules
-
----
-
-# 20. Workforce Requirement Calculation
-
-Example formula:
-
-Required Workers =
-Land Area × Worker Factor × Task Factor
-
-Example:
-
-5 acres
-×
-4 workers per acre for planting
-=
-20 workers
-
-This must be configurable by the admin.
-
-The system should support different rules for:
-
+- Preparation
 - Planting
+- Early Growth
 - Fertilization
 - Irrigation
-- Pest treatment
-- Harvesting
+- Monitoring
+- Pest/Disease Treatment
+- Harvest
 
-The workforce requirement should not be permanently hardcoded.
+The initial implementation should use configurable rule-based crop plans.
+
+---
+
+# 16. Crop Milestones
+
+A milestone represents an important stage or event.
+
+Example:
+
+Preparation
+
+↓
+
+Planting
+
+↓
+
+Early Growth
+
+↓
+
+Fertilization
+
+↓
+
+Irrigation
+
+↓
+
+Monitoring
+
+↓
+
+Harvest
+
+Each milestone may have:
+
+- Name
+- Description
+- Expected date
+- Status
+- Required evidence
+- Related tasks
+
+Possible statuses:
+
+PENDING
+
+ACTIVE
+
+COMPLETED
+
+DELAYED
+
+SKIPPED
+
+REVIEW_REQUIRED
+
+---
+
+# 17. Task Generation
+
+Each milestone may generate one or more tasks.
+
+Example:
+
+Milestone:
+
+Planting
+
+Tasks:
+
+- Prepare soil
+- Arrange seeds
+- Perform planting
+- Submit planting evidence
+
+Task information should include:
+
+- Contract
+- Land
+- Milestone
+- Title
+- Description
+- Required workers
+- Start date
+- Deadline
+- Status
+- Evidence requirements
+
+Task states:
+
+PENDING
+
+↓
+
+ACTIVE
+
+↓
+
+SUBMITTED_FOR_REVIEW
+
+↓
+
+COMPLETED
+
+Alternative states:
+
+SKIPPED
+
+DELAYED
+
+REJECTED
+
+REVIEW_REQUIRED
+
+---
+
+# 18. Worker Requirement Calculation
+
+Worker requirements should depend on:
+
+- Crop
+- Crop stage
+- Land area
+- Task type
+- Configured productivity rules
+
+Example:
+
+5 Acres
+
+×
+
+4 Workers Per Acre
+
+=
+
+20 Required Workers
+
+For MVP:
+
+Use configurable rule-based productivity values.
+
+Example:
+
+Crop: Paddy
+
+Stage: Planting
+
+Worker Rule:
+
+X workers per acre
+
+The system should calculate required workers dynamically.
+
+---
+
+# 19. Worker Job Creation
+
+When a task requires workers, the system should create a WorkerJob.
+
+A job may contain:
+
+- Task
+- Contract
+- Crop
+- Location
+- Required workers
+- Start date
+- Estimated duration
+- Payment information
+- Status
+
+Job states:
+
+OPEN
+
+↓
+
+PARTIALLY_FILLED
+
+↓
+
+FILLED
+
+↓
+
+IN_PROGRESS
+
+↓
+
+COMPLETED
+
+Alternative states may include:
+
+CANCELLED
+
+EXPIRED
+
+---
+
+# 20. Worker Matching
+
+Workers may be selected based on:
+
+- Location
+- Availability
+- Skill
+- Previous performance
+- Job type
+
+For the MVP:
+
+Location and availability are sufficient.
+
+The system should:
+
+- Identify eligible workers
+- Notify workers
+- Allow workers to accept or decline
+- Track filled positions
 
 ---
 
@@ -729,17 +1066,29 @@ When a contract becomes active, the system should calculate whether workers are 
 If workers are required:
 
 Contract Activated
+
 ↓
+
 Determine Current Crop Stage
+
 ↓
+
 Calculate Worker Requirement
+
 ↓
+
 Find Eligible Workers
+
 ↓
+
 Send Notifications
+
 ↓
+
 Workers Accept or Decline
+
 ↓
+
 Fill Required Positions
 
 Workers may be selected based on:
@@ -768,8 +1117,9 @@ Workers should see:
 
 Worker actions:
 
-- ACCEPT
-- DECLINE
+ACCEPT
+
+DECLINE
 
 The backend must prevent:
 
@@ -785,9 +1135,8 @@ After the required contract and job conditions are satisfied:
 
 The system may share:
 
-Landowner contact information with the assigned worker.
-
-Worker contact information with the landowner.
+- Landowner contact information with the assigned worker
+- Worker contact information with the landowner
 
 Contact information should only be shared after:
 
@@ -806,19 +1155,27 @@ The system should generate jobs only when needed.
 Example:
 
 Fertilizer required
+
 ↓
+
 Create Job
 
 Irrigation required
+
 ↓
+
 Create Job
 
 Disease treatment required
+
 ↓
+
 Create Job
 
 Harvest begins
+
 ↓
+
 Create Larger Workforce Requirement
 
 This reduces unnecessary worker notifications.
@@ -846,17 +1203,29 @@ Possible evidence:
 Task:
 
 Worker assigned
+
 ↓
+
 GPS Check-in
+
 ↓
+
 Perform Work
+
 ↓
+
 Upload Evidence
+
 ↓
+
 Submit Completion
+
 ↓
+
 System Verification
+
 ↓
+
 Completed / Review Required
 
 ---
@@ -883,20 +1252,33 @@ Example:
 Distance between worker and farm:
 
 Within allowed radius:
+
 PASS
 
 Outside allowed radius:
+
 FLAG
 
 Example statuses:
 
-- VERIFIED
-- TOO_FAR
-- LOW_ACCURACY
-- LOCATION_DENIED
-- REVIEW_REQUIRED
+VERIFIED
+
+TOO_FAR
+
+LOW_ACCURACY
+
+LOCATION_DENIED
+
+REVIEW_REQUIRED
 
 GPS verification must not be treated as perfect proof because location accuracy can vary.
+
+The verification should consider:
+
+- Distance
+- GPS accuracy
+- Timestamp
+- Optional evidence consistency
 
 ---
 
@@ -935,19 +1317,33 @@ AI should analyze submitted crop images.
 The initial AI workflow:
 
 Image Uploaded
+
 ↓
+
 Image Validation
+
 ↓
+
 AI Service
+
 ↓
+
 Analysis Result
+
 ↓
+
 Confidence Score
+
 ↓
+
 Potential Issue Detection
+
 ↓
+
 Store Result
+
 ↓
+
 Generate Alert if Required
 
 Possible analysis:
@@ -967,23 +1363,32 @@ AI results must include confidence and should not be treated as guaranteed agric
 Example:
 
 Confidence ≥ 85%
+
 ↓
+
 High-confidence result
 
 Confidence 60% to 84%
+
 ↓
+
 Show result but mark as moderate confidence
 
 Confidence below 60%
+
 ↓
+
 Request additional evidence or manual review
 
 Example statuses:
 
-- NORMAL
-- WARNING
-- HIGH_RISK
-- REVIEW_REQUIRED
+NORMAL
+
+WARNING
+
+HIGH_RISK
+
+REVIEW_REQUIRED
 
 Admin or authorized users should be able to review important AI alerts.
 
@@ -1013,7 +1418,9 @@ Use machine learning or predictive models.
 The system must clearly distinguish:
 
 Estimated production
+
 from
+
 Guaranteed production.
 
 ---
@@ -1034,6 +1441,11 @@ Used for:
 - Weather decisions
 - Suitability scoring
 - Basic risk scoring
+- Land matching
+- Vehicle matching
+- Pickup grouping
+- Basic route recommendation
+- Demand estimation
 
 ## Layer 2: External AI / ML APIs
 
@@ -1050,33 +1462,498 @@ Future implementation:
 - Yield prediction
 - Disease risk prediction
 - Production forecasting
+- Demand forecasting
+- Advanced logistics optimization
 
 The system should function even when advanced AI is unavailable.
 
 ---
 
-# 32. System Architecture
+# 32. Weather Intelligence
 
-Recommended architecture:
+The weather module should support:
+
+- Current weather
+- Rainfall
+- Forecast
+- Temperature
+- Weather alerts
+
+Weather data should be connected to land location.
+
+The system should evaluate:
+
+Task
+
++
+
+Crop
+
++
+
+Weather
+
++
+
+Rules
+
+Possible output:
+
+PROCEED
+
+SKIP
+
+DELAY
+
+REVIEW
+
+Example:
+
+Irrigation Task
+
+↓
+
+Check Recent Rainfall
+
+↓
+
+Check Weather Forecast
+
+↓
+
+Check Crop Stage
+
+↓
+
+Recommendation
+
+Weather intelligence should assist users rather than automatically making critical agricultural decisions.
+
+---
+
+# 33. Harvest Management
+
+When crop production reaches the harvest stage:
+
+Harvest Ready
+
+↓
+
+Producer / Landowner Confirms Availability
+
+↓
+
+Estimated Quantity Recorded
+
+↓
+
+Confirmed Quantity Recorded
+
+↓
+
+Quality and Evidence Verification
+
+↓
+
+Harvest Ready for Pickup
+
+Harvest information may include:
+
+- Contract
+- Crop
+- Land
+- Estimated quantity
+- Confirmed quantity
+- Pickup location
+- Ready date
+- Perishability priority
+- Delivery destination
+- Status
+
+Harvest states:
+
+ESTIMATED
+
+↓
+
+READY
+
+↓
+
+PICKUP_REQUESTED
+
+↓
+
+COLLECTED
+
+↓
+
+DELIVERED
+
+---
+
+# 34. Pickup Request Management
+
+When harvest is ready, the system can create a PickupRequest.
+
+A pickup request should contain:
+
+- Harvest
+- Contract
+- Crop
+- Quantity
+- Pickup coordinates
+- Ready time
+- Delivery destination
+- Priority
+- Perishability information
+- Status
+
+Possible statuses:
+
+PICKUP_REQUESTED
+
+PICKUP_SCHEDULED
+
+VEHICLE_ASSIGNED
+
+OUT_FOR_COLLECTION
+
+COLLECTED
+
+CANCELLED
+
+---
+
+# 35. Logistics Vehicle Management
+
+The platform may maintain vehicle records.
+
+Vehicle information may include:
+
+- Vehicle ID
+- Vehicle type
+- Capacity
+- Current location
+- Availability
+- Logistics provider
+- Supported cargo type
+
+For the MVP, vehicles may be managed by the admin.
+
+A dedicated logistics provider role can be added later.
+
+---
+
+# 36. Vehicle Matching
+
+The platform should evaluate:
+
+Vehicle Capacity
+
++
+
+Distance to Pickup
+
++
+
+Availability
+
++
+
+Quantity Requirement
+
++
+
+Destination
+
++
+
+Priority
+
+The system recommends suitable vehicles.
+
+Example:
+
+Pickup:
+
+3 tonnes of tomato
+
+Vehicle A:
+
+2 km away
+
+Capacity: 1 tonne
+
+Result:
+
+Insufficient capacity
+
+Vehicle B:
+
+7 km away
+
+Capacity: 5 tonnes
+
+Result:
+
+Recommended
+
+For the MVP:
+
+Use a rule-based scoring algorithm.
+
+Example factors:
+
+- Capacity suitability
+- Distance
+- Availability
+- Priority
+- Destination compatibility
+
+The recommendation must be treated as a suggestion.
+
+---
+
+# 37. Pickup Grouping
+
+Nearby pickup requests may be grouped when:
+
+- Locations are reasonably close
+- Vehicle capacity allows collection
+- Pickup time windows are compatible
+- Crop handling requirements are compatible
+- Delivery destinations are compatible
+
+Example:
+
+Farm A
+
+↓
+
+Farm B
+
+↓
+
+Farm C
+
+↓
+
+Collection Vehicle
+
+↓
+
+Buyer
+
+The objective is to reduce unnecessary trips and empty vehicle movement.
+
+For the MVP:
+
+Use configurable distance thresholds and capacity checks.
+
+---
+
+# 38. Route Optimization and Recommendation
+
+The route system aims to reduce:
+
+- Total travel distance
+- Empty vehicle movement
+- Transportation delays
+- Logistics costs
+- Post-harvest losses
+
+It should consider:
+
+- Pickup locations
+- Delivery destination
+- Vehicle capacity
+- Pickup readiness
+- Perishable crop priority
+
+Example:
+
+Vehicle
+
+↓
+
+Farm B
+
+↓
+
+Farm A
+
+↓
+
+Farm C
+
+↓
+
+Buyer / Distribution Point
+
+For the MVP:
+
+- Calculate distances
+- Group nearby pickups
+- Generate simple route recommendations
+- Respect basic capacity constraints
+
+Future versions may support:
+
+- Advanced multi-stop optimization
+- Multiple vehicles
+- Time windows
+- Dynamic traffic
+- Real-time route changes
+
+---
+
+# 39. Delivery Tracking and Verification
+
+Delivery workflow:
+
+PICKUP_REQUESTED
+
+↓
+
+PICKUP_SCHEDULED
+
+↓
+
+VEHICLE_ASSIGNED
+
+↓
+
+OUT_FOR_COLLECTION
+
+↓
+
+COLLECTED
+
+↓
+
+IN_TRANSIT
+
+↓
+
+DELIVERED
+
+↓
+
+CONFIRMED
+
+Delivery records may contain:
+
+- Vehicle
+- Driver or logistics partner
+- Pickup time
+- Delivery time
+- Quantity
+- GPS information
+- Timestamp
+- Delivery proof
+- Buyer confirmation
+
+The system should maintain delivery status history.
+
+---
+
+# 40. Frontend Architecture
+
+The existing frontend should be reused where possible.
+
+Do not rebuild working pages unnecessarily.
+
+Current prototype pages should gradually become functional.
+
+Recommended areas:
+
+Buyer:
+
+- Dashboard
+- Demand creation
+- Land matching
+- Contracts
+- Production monitoring
+- Harvest
+- Delivery tracking
+
+Landowner / Producer:
+
+- Dashboard
+- Land management
+- Contract offers
+- Active contracts
+- Crop progress
+- Harvest confirmation
+- Pickup status
+
+Worker:
+
+- Available jobs
+- Assigned jobs
+- GPS verification
+- Evidence submission
+- Job history
+
+Admin:
+
+- User management
+- Crop management
+- Contract monitoring
+- Verification review
+- AI alerts
+- Weather risks
+- Harvest monitoring
+- Vehicle management
+- Logistics monitoring
+- Route review
+- Disputes
+- Payments
+
+---
+
+# 41. System Architecture
+
+The system should follow this general architecture:
 
 Frontend
-Next.js
+
 ↓
-Application API Layer
+
+Next.js Application
+
 ↓
-Business Logic
+
+Backend APIs / Server Logic
+
 ↓
+
 Database
+
 +
+
 External APIs
+
 +
+
 AI Services
+
 +
+
 Weather Services
+
 +
+
 Map / Geolocation Services
+
 +
+
 Image Storage
+
++
+
+Optional Route / Distance Services
 
 The frontend should not directly contain secret API keys.
 
@@ -1084,27 +1961,55 @@ All sensitive API calls should be handled securely through the backend.
 
 ---
 
-# 33. Backend API Architecture
+# 42. Backend API Architecture
 
 Use organized API routes or server-side actions.
 
 Recommended structure:
 
 src/
+
   app/
-  api/
-    auth/
-    users/
-    crops/
-    lands/
-    contracts/
-    tasks/
-    evidence/
-    workforce/
-    weather/
-    ai/
-    payments/
-    notifications/
+
+    api/
+
+      auth/
+
+      users/
+
+      crops/
+
+      lands/
+
+      demands/
+
+      forecasts/
+
+      contracts/
+
+      milestones/
+
+      tasks/
+
+      evidence/
+
+      workforce/
+
+      weather/
+
+      ai/
+
+      harvest/
+
+      logistics/
+
+      routes/
+
+      deliveries/
+
+      payments/
+
+      notifications/
 
 Each API should:
 
@@ -1117,7 +2022,7 @@ Each API should:
 
 ---
 
-# 34. Authentication APIs
+# 43. Authentication APIs
 
 Required capabilities:
 
@@ -1139,7 +2044,7 @@ Authentication must eventually replace the current hardcoded demo OTP logic.
 
 ---
 
-# 35. Crop and Category APIs
+# 44. Crop and Category APIs
 
 Example endpoints:
 
@@ -1170,7 +2075,7 @@ Crop data should include:
 
 ---
 
-# 36. Land APIs
+# 45. Land APIs
 
 Required operations:
 
@@ -1201,7 +2106,7 @@ Land data should include:
 
 ---
 
-# 37. Buyer Demand APIs
+# 46. Buyer Demand APIs
 
 Required operations:
 
@@ -1226,7 +2131,33 @@ A demand contains:
 
 ---
 
-# 38. Contract APIs
+# 47. Demand Forecast APIs
+
+The demand intelligence module may support:
+
+GET /api/forecasts
+
+GET /api/forecasts/{cropId}
+
+POST /api/forecasts/generate
+
+The initial forecasting logic may use:
+
+- Historical demand
+- Current orders
+- Seasonal configuration
+- Region
+
+Outputs should clearly contain:
+
+- Historical values
+- Estimated demand
+- Confidence or reliability information where applicable
+- Calculation method
+
+---
+
+# 48. Contract APIs
 
 Required operations:
 
@@ -1252,7 +2183,7 @@ Contract logic must validate:
 
 ---
 
-# 39. Task and Milestone APIs
+# 49. Task and Milestone APIs
 
 Required operations:
 
@@ -1270,7 +2201,7 @@ Task completion should trigger verification logic.
 
 ---
 
-# 40. Evidence APIs
+# 50. Evidence APIs
 
 Required operations:
 
@@ -1292,7 +2223,7 @@ Evidence metadata should include:
 
 ---
 
-# 41. Workforce APIs
+# 51. Workforce APIs
 
 Required operations:
 
@@ -1312,7 +2243,7 @@ The backend must prevent overbooking.
 
 ---
 
-# 42. Weather APIs
+# 52. Weather APIs
 
 The weather module should support:
 
@@ -1327,11 +2258,17 @@ Weather data should be connected to land location.
 The system should evaluate:
 
 Task
+
 +
+
 Crop
+
 +
+
 Weather
+
 +
+
 Rules
 
 Possible output:
@@ -1343,7 +2280,7 @@ Possible output:
 
 ---
 
-# 43. AI APIs
+# 53. AI APIs
 
 Recommended AI flow:
 
@@ -1368,7 +2305,111 @@ AI API providers should be abstracted so they can be replaced later.
 
 ---
 
-# 44. Payment APIs and Platform Commission
+# 54. Harvest APIs
+
+Required operations:
+
+POST /api/harvests
+
+GET /api/harvests
+
+GET /api/harvests/{id}
+
+PATCH /api/harvests/{id}
+
+POST /api/harvests/{id}/confirm
+
+POST /api/harvests/{id}/request-pickup
+
+Harvest APIs should validate:
+
+- Contract state
+- User authorization
+- Quantity
+- Harvest status
+
+---
+
+# 55. Logistics APIs
+
+Required operations:
+
+POST /api/logistics/pickups
+
+GET /api/logistics/pickups
+
+GET /api/logistics/pickups/{id}
+
+PATCH /api/logistics/pickups/{id}
+
+POST /api/logistics/vehicles
+
+GET /api/logistics/vehicles
+
+PATCH /api/logistics/vehicles/{id}
+
+POST /api/logistics/match-vehicle
+
+The matching system should consider:
+
+- Vehicle capacity
+- Availability
+- Distance
+- Pickup quantity
+- Priority
+
+---
+
+# 56. Route APIs
+
+Required operations:
+
+POST /api/routes/generate
+
+GET /api/routes
+
+GET /api/routes/{id}
+
+The route engine should support:
+
+- Pickup grouping
+- Distance calculation
+- Stop ordering
+- Capacity checks
+
+The MVP may use a simple rule-based route recommendation algorithm.
+
+---
+
+# 57. Delivery APIs
+
+Required operations:
+
+POST /api/deliveries
+
+GET /api/deliveries
+
+GET /api/deliveries/{id}
+
+PATCH /api/deliveries/{id}
+
+POST /api/deliveries/{id}/confirm
+
+Delivery information may include:
+
+- Pickup
+- Vehicle
+- Route
+- Quantity
+- Pickup timestamp
+- Delivery timestamp
+- GPS information
+- Delivery proof
+- Confirmation
+
+---
+
+# 58. Payment APIs and Platform Commission
 
 The payment system should track:
 
@@ -1376,6 +2417,7 @@ The payment system should track:
 - Contract value
 - Landowner allocation
 - Worker payment
+- Logistics cost
 - Platform commission
 
 Example statuses:
@@ -1385,6 +2427,7 @@ Example statuses:
 - PAID
 - FAILED
 - REFUNDED
+- DISPUTED
 
 The MVP may initially simulate payments while keeping the backend structure ready for real payment integration.
 
@@ -1392,7 +2435,7 @@ Financial records should be stored server-side.
 
 ---
 
-# 45. Core Database Entities
+# 59. Core Database Entities
 
 Recommended initial database entities:
 
@@ -1411,6 +2454,8 @@ CropPlan
 CropStage
 
 BuyerDemand
+
+DemandForecast
 
 Contract
 
@@ -1432,6 +2477,22 @@ AIAnalysis
 
 WeatherRecord
 
+Harvest
+
+PickupRequest
+
+LogisticsVehicle
+
+VehicleAssignment
+
+RoutePlan
+
+RouteStop
+
+Delivery
+
+DeliveryProof
+
 Notification
 
 Payment
@@ -1445,113 +2506,272 @@ AuditLog
 Important relationships:
 
 User
+
 ↓
+
 Landowner owns Land
 
 Buyer
+
 ↓
+
 Creates BuyerDemand
 
 BuyerDemand
+
 ↓
+
 Creates Contract
 
 Contract
+
 ↓
+
 Contains one or multiple Land parcels
 
 Contract
+
 ↓
+
 Generates Milestones
 
 Milestone
+
 ↓
+
 Contains Tasks
 
 Task
+
 ↓
+
 May create WorkerJob
 
 WorkerJob
+
 ↓
+
 Assigned to Worker
 
 Task
+
 ↓
+
 Has Evidence
 
 Evidence
+
 ↓
+
 May have AIAnalysis
+
+Contract
+
+↓
+
+Produces Harvest
+
+Harvest
+
+↓
+
+Creates PickupRequest
+
+PickupRequest
+
+↓
+
+Assigned to Vehicle
+
+Vehicle
+
+↓
+
+Follows RoutePlan
+
+RoutePlan
+
+↓
+
+Contains RouteStops
+
+RouteStop
+
+↓
+
+Creates Delivery
+
+Delivery
+
+↓
+
+Buyer Confirmation
+
+↓
+
+Payment / Settlement
 
 ---
 
-# 46. Important State Machines
+# 60. Important State Machines
 
 ## Land
 
 AVAILABLE
+
 ↓
+
 RESERVED
+
 ↓
+
 UNDER_CONTRACT
+
 ↓
+
 AVAILABLE after completion if applicable
 
 ## Contract
 
 DRAFT
+
 ↓
+
 SUBMITTED
+
 ↓
+
 OFFERED
+
 ↓
+
 PARTIALLY_ACCEPTED
+
 ↓
+
 ACTIVE
+
 ↓
+
 AT_RISK if necessary
+
 ↓
+
 COMPLETED
 
 Alternative:
 
 DECLINED
+
 CANCELLED
+
 DISPUTED
 
 ## Task
 
 PENDING
+
 ↓
+
 ACTIVE
+
 ↓
+
 SUBMITTED_FOR_REVIEW
+
 ↓
+
 COMPLETED
 
 Alternative:
 
 SKIPPED
+
 DELAYED
+
 REJECTED
+
 REVIEW_REQUIRED
 
 ## Worker Job
 
 OPEN
+
 ↓
+
 PARTIALLY_FILLED
+
 ↓
+
 FILLED
+
 ↓
+
 IN_PROGRESS
+
 ↓
+
 COMPLETED
+
+## Harvest
+
+ESTIMATED
+
+↓
+
+READY
+
+↓
+
+PICKUP_REQUESTED
+
+↓
+
+COLLECTED
+
+↓
+
+DELIVERED
+
+## Pickup
+
+PICKUP_REQUESTED
+
+↓
+
+PICKUP_SCHEDULED
+
+↓
+
+VEHICLE_ASSIGNED
+
+↓
+
+OUT_FOR_COLLECTION
+
+↓
+
+COLLECTED
+
+## Delivery
+
+COLLECTED
+
+↓
+
+IN_TRANSIT
+
+↓
+
+DELIVERED
+
+↓
+
+CONFIRMED
 
 ---
 
-# 47. Frontend, Implementation Strategy and MVP Success
+# 61. Frontend, Implementation Strategy and MVP Success
 
 The existing frontend should be reused where possible.
 
@@ -1602,8 +2822,10 @@ Implement:
 - Area
 - Availability
 - Land status
+- Crop categories
+- Crop data
 
-## Phase 4 — Buyer Demand Flow
+## Phase 4 — Buyer Demand and Land Matching
 
 Implement:
 
@@ -1614,7 +2836,8 @@ Implement:
 - Map
 - Available land selection
 - Multiple land selection
-- Contract proposal
+- Match scoring
+- Buyer demand workflow
 
 ## Phase 5 — Contract Engine
 
@@ -1679,19 +2902,62 @@ Implement:
 - Dashboard alerts
 - Admin review
 
-## Phase 11 — Payments
+## Phase 11 — Harvest Management
+
+Implement:
+
+- Harvest readiness
+- Quantity confirmation
+- Harvest evidence
+- Harvest status
+- Pickup request generation
+
+## Phase 12 — Demand Intelligence (future enhancement)
+
+Implement:
+
+- Historical demand records
+- Seasonal trends
+- Current order analysis
+- Forecast assistance
+- Suggested production targets
+
+## Phase 13 — Smart Logistics
+
+Implement:
+
+- Pickup requests
+- Vehicle records
+- Vehicle availability
+- Vehicle matching
+- Pickup grouping
+- Delivery tracking
+
+## Phase 14 — Route Optimization
+
+Implement:
+
+- Distance calculation
+- Pickup grouping
+- Stop ordering
+- Capacity-aware route planning
+- Route recommendation
+
+## Phase 15 — Payments and Settlement
 
 Implement:
 
 - Contract financial tracking
 - Landowner allocation
 - Worker payments
+- Logistics cost tracking
 - Platform commission
 - Payment statuses
+- Settlement records
 
 ---
 
-# MVP Success Criteria
+# 62. MVP Success Criteria
 
 The MVP should demonstrate the complete end-to-end flow:
 
@@ -1713,40 +2979,38 @@ The MVP should demonstrate the complete end-to-end flow:
 16. Weather can affect task recommendations.
 17. Buyer can monitor contract progress.
 18. Landowner can monitor farming progress.
-19. Admin can review risks and disputes.
-20. Payment and commission records are tracked.
+19. Harvest quantity is confirmed.
+20. Pickup request is created.
+21. Vehicle is matched.
+22. Nearby pickups may be grouped.
+23. A route is recommended.
+24. Produce is collected.
+25. Delivery status is tracked.
+26. Buyer confirms delivery.
+27. Admin can review risks and disputes.
+28. Payment, logistics cost, and commission records are tracked.
 
 ---
 
-# Final Development Principles
+# 63. Final Development Principles
 
 1. Do not rebuild the entire existing frontend unless necessary.
 2. Reuse existing components and pages wherever possible.
 3. Convert mock data into real backend-connected data gradually.
-4. Keep frontend, backend, database, AI, weather, and payment logic separated.
+4. Keep frontend, backend, database, AI, weather, logistics, and payment logic separated.
 5. Do not expose API keys in frontend code.
 6. Validate important business rules on the backend.
 7. Do not implement every feature in one step.
 8. Complete one phase, test it, then continue.
 9. Use rule-based logic where real machine learning is not yet required.
 10. Clearly distinguish demo data, estimated data, AI predictions, and verified data.
-11. Do not present AI results as guaranteed agricultural or financial outcomes.
+11. Do not present AI results as guaranteed agricultural, financial, or medical outcomes.
 12. Preserve a clean and understandable folder structure.
 13. Every major feature must connect to the database rather than relying only on frontend state.
 14. Existing functionality should not be broken when adding new features.
-15. Before major code changes, inspect relevant existing files and dependencies.
-
-# AI Agent Instructions
-
-Before implementing any major feature:
-
-1. Read this `docs/PRD.md`.
-2. Inspect the relevant existing code.
-3. Identify reusable components.
-4. Explain the implementation plan.
-5. Make changes incrementally.
-6. Test the application.
-7. Report changed files.
-8. Report any required environment variables.
-9. Do not silently replace working architecture.
-10. Ask before making destructive or major architectural changes.
+15. Demand forecasting should assist production planning but must not replace confirmed buyer demand.
+16. Logistics recommendations should be transparent and explainable.
+17. Route recommendations should be treated as suggestions unless connected to verified real-time logistics data.
+18. The MVP should prioritize a complete working flow over excessive complexity.
+19. Each new phase should build on the previous phase without unnecessary redesign.
+20. Preserve backward compatibility with completed project phases wherever practical.

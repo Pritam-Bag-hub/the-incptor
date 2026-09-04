@@ -36,12 +36,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden: You do not own this contract." }, { status: 403 });
     }
 
-    if (contract.status !== "ACCEPTED") {
-      return NextResponse.json({ error: "Only accepted contract proposals can be activated." }, { status: 400 });
-    }
-
-    if (contract.land.status !== "UNDER_CONTRACT") {
-      return NextResponse.json({ error: "The associated land parcel must be UNDER_CONTRACT to activate." }, { status: 400 });
+    if (contract.status !== "ACCEPTED" && contract.status !== "PENDING_APPROVAL") {
+      return NextResponse.json({ error: "Only pending or accepted contract proposals can be activated." }, { status: 400 });
     }
 
     const updated = await db.$transaction(async (tx) => {
@@ -53,6 +49,14 @@ export async function PATCH(
           activatedAt: new Date(),
         },
       });
+
+      // 2. Lock associated land parcel status to UNDER_CONTRACT if not already
+      if (contract.land.status !== "UNDER_CONTRACT") {
+        await tx.land.update({
+          where: { id: contract.landId },
+          data: { status: "UNDER_CONTRACT" },
+        });
+      }
 
       // 2. Initialize defaults for ContractFinancialAllocation (idempotent)
       const totalContractValue = contract.proposedPrice;

@@ -11,20 +11,36 @@ enum Role {
   LANDOWNER
   WORKER
   ADMIN
+  CENTER_MANAGER
+  INSPECTOR
+  TRANSPORTER
 }
 
 model User {
-  id                 String    @id @default(uuid())
-  name               String
-  phone              String    @unique
-  role               Role
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  sessions           Session[]
-  lands              Land[]
-  demands            BuyerDemand[]
-  buyerContracts     Contract[] @relation("BuyerContracts")
-  landownerContracts Contract[] @relation("LandownerContracts")
+  id                       String              @id @default(uuid())
+  name                     String
+  phone                    String              @unique
+  role                     Role
+  latitude                 Float?
+  longitude                Float?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  sessions                 Session[]
+  lands                    Land[]
+  demands                  BuyerDemand[]
+  buyerContracts           Contract[]          @relation("BuyerContracts")
+  landownerContracts       Contract[]          @relation("LandownerContracts")
+  managedCollectionCenters CollectionCenter[]  @relation("CenterManager")
+  receivedHarvestReceipts  HarvestReceipt[]    @relation("ReceivedHarvestReceipts")
+  produceInspections       ProduceInspection[] @relation("InspectorInspections")
+  transporterVehicles      Vehicle[]           @relation("TransporterVehicles")
+  buyerShipments           Shipment[]          @relation("BuyerShipments")
+  assignedTransporterShipments Shipment[]      @relation("AssignedTransporterShipments")
+  jobRequirements          WorkerJobRequirement[] @relation("LandownerJobRequirements")
+  jobApplications          WorkerJobApplication[] @relation("WorkerApplications")
+  workerContracts          WorkerContract[]    @relation("WorkerContracts")
+  landownerWorkerContracts WorkerContract[]    @relation("LandownerWorkerContracts")
+  workerDailyReports       WorkerDailyReport[] @relation("WorkerDailyReports")
 }
 
 model Session {
@@ -65,6 +81,8 @@ model Crop {
   demands      BuyerDemand[]
   contracts    Contract[]
   milestoneTemplates CropMilestoneTemplate[]
+  workerJobRequirements WorkerJobRequirement[]
+  workerContracts WorkerContract[]
 }
 
 model Land {
@@ -87,6 +105,8 @@ model Land {
   updatedAt   DateTime   @updatedAt
   selections  DemandLandSelection[]
   contracts   Contract[]
+  workerJobRequirements WorkerJobRequirement[]
+  workerContracts WorkerContract[]
 
   @@index([ownerId])
 }
@@ -126,6 +146,7 @@ model BuyerDemand {
   updatedAt           DateTime          @updatedAt
   selectedLands       DemandLandSelection[]
   contracts           Contract[]
+  shipments           Shipment[]
 
   @@index([buyerId])
   @@index([cropId])
@@ -159,7 +180,7 @@ model Contract {
   demandId            String
   demand              BuyerDemand    @relation(fields: [demandId], references: [id], onDelete: Cascade)
   landId              String
-  land                Land           @relation(fields: [landId], references: [id], onDelete: Cascade)
+  land                Land           @relation(fields: [landId], references: [id], onDelete: Restrict)
   buyerId             String
   buyer               User           @relation("BuyerContracts", fields: [buyerId], references: [id], onDelete: Cascade)
   landownerId         String
@@ -191,6 +212,10 @@ model Contract {
   milestones          ContractMilestone[]
   alerts              ContractAlert[]
   tasks               ContractTask[]
+  harvestReceipts     HarvestReceipt[]
+  produceInspections  ProduceInspection[]
+  workerJobRequirements WorkerJobRequirement[]
+  workerContracts     WorkerContract[]
 
   @@unique([demandId, landId])
   @@index([demandId])
@@ -282,6 +307,7 @@ model ContractYield {
   fulfillmentStatus     FulfillmentStatus @default(PENDING)
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
+  harvestReceipts       HarvestReceipt[]
 }
 
 enum MilestoneStatus {
@@ -328,6 +354,9 @@ enum ContractAlertType {
   MILESTONE_OVERDUE
   HARVEST_DELAY
   PROGRESS_DELAY
+  QUALITY_FLAG
+  WEIGHT_MISMATCH
+  REJECTED_LOT
 }
 
 enum AlertSeverity {
@@ -393,4 +422,359 @@ model ContractTask {
   @@index([milestoneId])
   @@index([status])
 }
+
+model CollectionCenter {
+  id             String   @id @default(uuid())
+  name           String
+  code           String   @unique
+  address        String
+  village        String
+  district       String
+  state          String
+  pincode        String?
+  latitude       Float
+  longitude      Float
+  capacityTonnes Float
+  isActive       Boolean  @default(true)
+
+  managerId      String?
+  manager        User?    @relation("CenterManager", fields: [managerId], references: [id])
+
+  receivedLots   HarvestReceipt[]
+  shipmentItems  ShipmentItem[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum ReceiptStatus {
+  RECEIVED
+  INSPECTED
+  REJECTED
+  AGGREGATED_FOR_SHIPMENT
+}
+
+model HarvestReceipt {
+  id                String           @id @default(uuid())
+  receiptNumber     String           @unique
+
+  contractId        String
+  contract          Contract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  yieldId           String
+  yield             ContractYield    @relation(fields: [yieldId], references: [id])
+
+  centerId          String
+  center            CollectionCenter @relation(fields: [centerId], references: [id])
+
+  receivedByUserId  String
+  receivedByUser    User             @relation("ReceivedHarvestReceipts", fields: [receivedByUserId], references: [id])
+
+  grossWeight       Float
+  tareWeight        Float
+  netWeight         Float
+  unit              QuantityUnit
+
+  status            ReceiptStatus    @default(RECEIVED)
+
+  receiptPhotoUrl   String?
+  notes             String?
+
+  receivedAt        DateTime         @default(now())
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  inspections       ProduceInspection[]
+  shipmentItems     ShipmentItem[]
+}
+
+enum InspectionGrade {
+  GRADE_A
+  GRADE_B
+  GRADE_C
+  REJECTED
+}
+
+enum InspectionStatus {
+  PENDING
+  PASSED
+  PASSED_WITH_FLAGS
+  REJECTED
+}
+
+model ProduceInspection {
+  id                      String           @id @default(uuid())
+
+  receiptId               String
+  receipt                 HarvestReceipt   @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  contractId              String
+  contract                Contract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  inspectorId             String
+  inspector               User             @relation("InspectorInspections", fields: [inspectorId], references: [id])
+
+  acceptedWeight          Float
+  rejectedWeight          Float            @default(0)
+  unit                    QuantityUnit
+
+  grade                   InspectionGrade
+  moistureContent         Float?
+  foreignMatterPercentage Float?
+
+  status                  InspectionStatus @default(PENDING)
+  flagReason              String?
+
+  samplePhotoUrlsJson     String?
+
+  inspectorGpsLat         Float?
+  inspectorGpsLng         Float?
+
+  inspectedAt             DateTime         @default(now())
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+}
+
+enum VehicleType {
+  PICKUP_TRUCK
+  MEDIUM_LORRY
+  HEAVY_TRUCK
+  REFRIGERATED_VAN
+}
+
+enum VehicleStatus {
+  IDLE
+  ASSIGNED
+  IN_TRANSIT
+  MAINTENANCE
+}
+
+model Vehicle {
+  id               String        @id @default(uuid())
+  vehicleNumber    String        @unique
+  vehicleType      VehicleType   @default(MEDIUM_LORRY)
+
+  capacity         Float
+  capacityUnit     QuantityUnit  @default(TONNE)
+
+  transporterId    String
+  transporter      User          @relation("TransporterVehicles", fields: [transporterId], references: [id])
+
+  isAvailable      Boolean       @default(true)
+  status           VehicleStatus @default(IDLE)
+
+  currentLatitude  Float?
+  currentLongitude Float?
+
+  shipments        Shipment[]
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([transporterId])
+  @@index([status])
+}
+
+enum ShipmentStatus {
+  DRAFT
+  READY_FOR_DISPATCH
+  ASSIGNED
+  IN_TRANSIT
+  ARRIVED_AT_DESTINATION
+  DELIVERED_CONFIRMED
+  DISPUTED
+}
+
+model Shipment {
+  id                    String         @id @default(uuid())
+  shipmentCode          String         @unique
+
+  buyerId               String
+  buyer                 User           @relation("BuyerShipments", fields: [buyerId], references: [id])
+
+  demandId              String?
+  demand                BuyerDemand?   @relation(fields: [demandId], references: [id])
+
+  vehicleId             String?
+  vehicle               Vehicle?       @relation(fields: [vehicleId], references: [id])
+
+  transporterId         String?
+  transporter           User?          @relation("AssignedTransporterShipments", fields: [transporterId], references: [id])
+
+  status                ShipmentStatus @default(DRAFT)
+
+  totalWeight           Float          @default(0)
+  weightUnit            QuantityUnit   @default(TONNE)
+
+  destinationAddress    String
+  destinationLatitude   Float
+  destinationLongitude  Float
+
+  scheduledPickupDate   DateTime?
+  dispatchedAt          DateTime?
+  deliveredAt           DateTime?
+
+  items                 ShipmentItem[]
+
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([buyerId])
+  @@index([vehicleId])
+  @@index([status])
+}
+
+model ShipmentItem {
+  id               String           @id @default(uuid())
+
+  shipmentId       String
+  shipment         Shipment         @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  receiptId        String
+  harvestReceipt   HarvestReceipt   @relation(fields: [receiptId], references: [id])
+
+  centerId         String
+  collectionCenter CollectionCenter @relation(fields: [centerId], references: [id])
+
+  shippedWeight    Float
+  unit             QuantityUnit
+
+  pickupSequence   Int              @default(1)
+
+  isPickedUp       Boolean          @default(false)
+  pickedUpAt       DateTime?
+
+  notes            String?
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([shipmentId])
+  @@index([receiptId])
+  @@index([centerId])
+}
+
+enum WorkerJobStatus {
+  OPEN
+  FILLED
+  CANCELLED
+}
+
+enum WorkerApplicationStatus {
+  APPLIED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum WorkerContractStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+model WorkerJobRequirement {
+  id               String               @id @default(uuid())
+  contractId       String
+  contract         Contract             @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  landownerId       String
+  landowner        User                 @relation("LandownerJobRequirements", fields: [landownerId], references: [id], onDelete: Cascade)
+  landId           String
+  land             Land                 @relation(fields: [landId], references: [id], onDelete: Cascade)
+  cropId           String
+  crop             Crop                 @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  workersRequired  Int                  @default(1)
+  acceptedWorkers  Int                  @default(0)
+  startDate        DateTime
+  endDate          DateTime
+  workingHours     String               @default("08:00 AM – 04:00 PM")
+  status           WorkerJobStatus      @default(OPEN)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  applications     WorkerJobApplication[]
+  workerContracts  WorkerContract[]
+
+  @@index([contractId])
+  @@index([landownerId])
+  @@index([status])
+}
+
+model WorkerJobApplication {
+  id               String               @id @default(uuid())
+  jobRequirementId String
+  jobRequirement   WorkerJobRequirement @relation(fields: [jobRequirementId], references: [id], onDelete: Cascade)
+  workerId         String
+  worker           User                 @relation("WorkerApplications", fields: [workerId], references: [id], onDelete: Cascade)
+  status           WorkerApplicationStatus @default(APPLIED)
+  appliedAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([workerId, jobRequirementId])
+  @@index([jobRequirementId])
+  @@index([workerId])
+  @@index([status])
+}
+
+model WorkerContract {
+  id               String               @id @default(uuid())
+  workerId         String
+  worker           User                 @relation("WorkerContracts", fields: [workerId], references: [id], onDelete: Cascade)
+  landownerId       String
+  landowner        User                 @relation("LandownerWorkerContracts", fields: [landownerId], references: [id], onDelete: Cascade)
+  farmingContractId String
+  farmingContract  Contract             @relation(fields: [farmingContractId], references: [id], onDelete: Cascade)
+  jobRequirementId String
+  jobRequirement   WorkerJobRequirement @relation(fields: [jobRequirementId], references: [id], onDelete: Cascade)
+  landId           String
+  land             Land                 @relation(fields: [landId], references: [id], onDelete: Cascade)
+  cropId           String
+  crop             Crop                 @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  startDate        DateTime
+  endDate          DateTime
+  workingHours     String               @default("08:00 AM – 04:00 PM")
+  status           WorkerContractStatus @default(ACTIVE)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  dailyReports     WorkerDailyReport[]
+
+  @@index([workerId])
+  @@index([landownerId])
+  @@index([farmingContractId])
+  @@index([jobRequirementId])
+  @@index([status])
+}
+
+enum DailyWorkStatus {
+  COMPLETED
+  PARTIAL
+  NOT_COMPLETED
+}
+
+model WorkerDailyReport {
+  id                String            @id @default(uuid())
+  workerId          String
+  worker            User              @relation("WorkerDailyReports", fields: [workerId], references: [id], onDelete: Cascade)
+  workerContractId  String
+  workerContract    WorkerContract    @relation(fields: [workerContractId], references: [id], onDelete: Cascade)
+  date              DateTime          // Start of day UTC timestamp (e.g. YYYY-MM-DDT00:00:00.000Z)
+  status            DailyWorkStatus?  // null if checked in but work result not yet submitted
+  checkInAt         DateTime?
+  submittedAt       DateTime?
+  checkOutAt        DateTime?
+  issueType         String?           // e.g. "Irrigation / water problem", "Equipment problem", "Weather", "Pest / disease observed", "Material unavailable", "Other"
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([workerContractId, date])
+  @@index([workerId])
+  @@index([workerContractId])
+  @@index([date])
+}
+
+
 

@@ -10,13 +10,27 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (user.role !== "BUYER") {
-      return NextResponse.json({ error: "Forbidden: Buyer role required" }, { status: 403 });
+    let whereClause: any = {};
+    if (user.role === "BUYER") {
+      whereClause.buyerId = user.id;
+    } else if (user.role === "LANDOWNER") {
+      whereClause.status = "ACTIVE";
+    } else if (user.role === "ADMIN") {
+      whereClause = {};
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const demands = await db.buyerDemand.findMany({
-      where: { buyerId: user.id },
+      where: whereClause,
       include: {
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
         crop: {
           include: {
             category: true,

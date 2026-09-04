@@ -15,6 +15,9 @@ function AuthForm() {
     farmer: "+919999999992",
     worker: "+919999999993",
     admin: "+919999999994",
+    inspector: "+919999999902",
+    center_manager: "+919999999901",
+    transporter: "+919999999905",
   };
 
   const defaultPhone = demoPhoneMap[roleParam] || "+919999999991";
@@ -63,7 +66,7 @@ function AuthForm() {
       }
 
       // Successful login, redirect according to DB role
-      const userRole = data.user.role; // BUYER, LANDOWNER, WORKER, ADMIN
+      const userRole = data.user.role; // BUYER, LANDOWNER, WORKER, ADMIN, INSPECTOR, CENTER_MANAGER, TRANSPORTER
       setIsLoading(false);
 
       if (userRole === "BUYER") {
@@ -74,6 +77,12 @@ function AuthForm() {
         router.push("/dashboard/worker");
       } else if (userRole === "ADMIN") {
         router.push("/admin");
+      } else if (userRole === "INSPECTOR") {
+        router.push("/dashboard/inspector");
+      } else if (userRole === "CENTER_MANAGER") {
+        router.push("/dashboard/center-manager");
+      } else if (userRole === "TRANSPORTER") {
+        router.push("/dashboard/transporter");
       } else {
         setError("Invalid user role assigned.");
       }

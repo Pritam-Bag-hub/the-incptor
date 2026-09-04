@@ -23,8 +23,8 @@ export async function GET(
       return NextResponse.json({ error: "Contract not found." }, { status: 404 });
     }
 
-    // Access check: User must be buyer or landowner
-    if (contract.buyerId !== user.id && contract.landownerId !== user.id) {
+    // Access check: User must be buyer, landowner, worker, or admin
+    if (contract.buyerId !== user.id && contract.landownerId !== user.id && user.role !== "WORKER" && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden: Unauthorized access." }, { status: 403 });
     }
 
@@ -99,9 +99,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Task not found for this contract." }, { status: 404 });
     }
 
-    // Access check: Only the landowner of this contract can update task status
-    if (task.contract.landownerId !== user.id) {
-      return NextResponse.json({ error: "Forbidden: Only the associated Landowner can modify tasks." }, { status: 403 });
+    // Access check: Landowner, worker, or admin can update task status
+    if (task.contract.landownerId !== user.id && user.role !== "WORKER" && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Landowner, Worker, or Admin role required." }, { status: 403 });
     }
 
     // Update status
